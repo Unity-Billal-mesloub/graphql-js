@@ -78,9 +78,9 @@ module.exports = {
     'node/prefer-promises/dns': 'off',
     'node/prefer-promises/fs': 'off',
 
-    // ////////////////////////////////////////////////////////////////////////////
-    // `eslint-plugin-import` rule list based on `v2.26.x`
-    // ////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    // `eslint-plugin-import` rule list based on `v2.27.x`
+    //////////////////////////////////////////////////////////////////////////////
 
     // Static analysis
     // https://github.com/benmosher/eslint-plugin-import#static-analysis
@@ -114,6 +114,7 @@ module.exports = {
     'import/no-extraneous-dependencies': ['error', { devDependencies: false }],
     'import/no-mutable-exports': 'error',
     'import/no-unused-modules': 'error',
+    'import/no-empty-named-blocks': 'error',
 
     // Module systems
     // https://github.com/benmosher/eslint-plugin-import#module-systems
@@ -125,6 +126,7 @@ module.exports = {
 
     // Style guide
     // https://github.com/benmosher/eslint-plugin-import#style-guide
+    'import/consistent-type-specifier-style': 'error',
     'import/first': 'error',
     'import/exports-last': 'off',
     'import/no-duplicates': 'error',
@@ -145,8 +147,8 @@ module.exports = {
     'import/group-exports': 'off',
     'import/dynamic-import-chunkname': 'off',
 
-    // ////////////////////////////////////////////////////////////////////////////
-    // `eslint-plugin-simple-import-sort` rule list based on `v8.0.x`
+    //////////////////////////////////////////////////////////////////////////////
+    // `eslint-plugin-simple-import-sort` rule list based on `v10.0.x`
     // https://github.com/lydell/eslint-plugin-simple-import-sort
     // ////////////////////////////////////////////////////////////////////////////
 
@@ -185,9 +187,9 @@ module.exports = {
     ],
     'simple-import-sort/exports': 'off', // TODO: error
 
-    // ////////////////////////////////////////////////////////////////////////////
-    // ESLint builtin rules list based on `v8.27.x`
-    // ////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    // ESLint builtin rules list based on `v8.34.x`
+    //////////////////////////////////////////////////////////////////////////////
 
     // Possible Errors
     // https://eslint.org/docs/latest/rules/#possible-problems
@@ -344,7 +346,10 @@ module.exports = {
     'no-proto': 'error',
     'no-redeclare': 'error',
     'no-regex-spaces': 'error',
-    'no-restricted-exports': 'off',
+    'no-restricted-exports': [
+      'error',
+      { restrictDefaultExports: { direct: true } },
+    ],
     'no-restricted-globals': 'off',
     'no-restricted-imports': 'off',
     'no-restricted-properties': 'off',
@@ -502,9 +507,9 @@ module.exports = {
 
         'tsdoc/syntax': 'error',
 
-        // ////////////////////////////////////////////////////////////////////////
-        // `@typescript-eslint/eslint-plugin` rule list based on `v5.43.x`
-        // ////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////
+        // `@typescript-eslint/eslint-plugin` rule list based on `v5.53.x`
+        //////////////////////////////////////////////////////////////////////////
 
         // Supported Rules
         // https://typescript-eslint.io/rules/#extension-rules
@@ -545,6 +550,7 @@ module.exports = {
         '@typescript-eslint/no-floating-promises': 'error',
         '@typescript-eslint/no-for-in-array': 'error',
         '@typescript-eslint/no-implicit-any-catch': 'off', // TODO: Enable after TS conversion
+        '@typescript-eslint/no-import-type-side-effects': 'error',
         '@typescript-eslint/no-implied-eval': 'error',
         '@typescript-eslint/no-inferrable-types': [
           'error',
@@ -552,6 +558,7 @@ module.exports = {
         ],
         '@typescript-eslint/no-misused-new': 'error',
         '@typescript-eslint/no-misused-promises': 'error',
+        '@typescript-eslint/no-mixed-enums': 'error',
         '@typescript-eslint/no-namespace': 'error',
         '@typescript-eslint/no-non-null-asserted-nullish-coalescing': 'error',
         '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
@@ -665,6 +672,7 @@ module.exports = {
 
         // Below rules are disabled because they conflict with Prettier, see:
         // https://github.com/prettier/eslint-config-prettier/blob/main/index.js
+        '@typescript-eslint/block-spacing': 'off',
         '@typescript-eslint/object-curly-spacing': 'off',
         '@typescript-eslint/quotes': 'off',
         '@typescript-eslint/brace-style': 'off',
@@ -672,6 +680,7 @@ module.exports = {
         '@typescript-eslint/comma-spacing': 'off',
         '@typescript-eslint/func-call-spacing': 'off',
         '@typescript-eslint/indent': 'off',
+        '@typescript-eslint/key-spacing': 'off',
         '@typescript-eslint/keyword-spacing': 'off',
         '@typescript-eslint/member-delimiter-style': 'off',
         '@typescript-eslint/no-extra-parens': 'off',
@@ -805,6 +814,7 @@ module.exports = {
         },
       },
       rules: {
+        'no-restricted-exports': 'off',
         'node/no-unpublished-require': 'off',
         'import/no-default-export': 'off',
         'import/no-commonjs': 'off',
