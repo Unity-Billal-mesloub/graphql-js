@@ -152,6 +152,34 @@ describe('Execute: Accepts async iterables as list value', () => {
     });
   });
 
+  it('Accepts an AsyncIterable yielding promises', async () => {
+    const listField = {
+      [Symbol.asyncIterator]() {
+        let index = 0;
+        const values = [
+          Promise.resolve('two'),
+          Promise.resolve(4),
+          Promise.resolve(false),
+        ];
+
+        return {
+          next() {
+            const value = values[index];
+            if (value === undefined) {
+              return Promise.resolve({ value: undefined, done: true });
+            }
+            index += 1;
+            return Promise.resolve({ value, done: false });
+          },
+        };
+      },
+    };
+
+    expectJSON(await complete({ listField })).toDeepEqual({
+      data: { listField: ['two', '4', 'false'] },
+    });
+  });
+
   it('Handles an AsyncGenerator function where an intermediate value triggers an error', async () => {
     async function* listField() {
       yield await Promise.resolve('two');

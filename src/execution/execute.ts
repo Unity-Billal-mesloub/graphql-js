@@ -825,16 +825,30 @@ async function completeAsyncIteratorValue(
     try {
       // eslint-disable-next-line no-await-in-loop
       iteration = await asyncIterator.next();
-      if (iteration.done) {
-        break;
-      }
     } catch (rawError) {
       throw locatedError(rawError, fieldGroup, pathToArray(path));
     }
 
-    if (
+    if (iteration.done) {
+      break;
+    }
+
+    const item = iteration.value;
+    if (isPromise(item)) {
+      completedResults.push(
+        completePromisedListItemValue(
+          item,
+          exeContext,
+          itemType,
+          fieldGroup,
+          info,
+          itemPath,
+        ),
+      );
+      containsPromise = true;
+    } else if (
       completeListItemValue(
-        iteration.value,
+        item,
         completedResults,
         exeContext,
         itemType,
@@ -893,7 +907,19 @@ function completeListValue(
     // since from here on it is not ever accessed by resolver functions.
     const itemPath = addPath(path, index, undefined);
 
-    if (
+    if (isPromise(item)) {
+      completedResults.push(
+        completePromisedListItemValue(
+          item,
+          exeContext,
+          itemType,
+          fieldGroup,
+          info,
+          itemPath,
+        ),
+      );
+      containsPromise = true;
+    } else if (
       completeListItemValue(
         item,
         completedResults,
@@ -927,21 +953,6 @@ function completeListItemValue(
   info: GraphQLResolveInfo,
   itemPath: Path,
 ): boolean {
-  if (isPromise(item)) {
-    completedResults.push(
-      completePromisedValue(
-        exeContext,
-        itemType,
-        fieldGroup,
-        info,
-        itemPath,
-        item,
-      ),
-    );
-
-    return true;
-  }
-
   try {
     const completedItem = completeValue(
       exeContext,
@@ -978,6 +989,34 @@ function completeListItemValue(
   }
 
   return false;
+}
+
+async function completePromisedListItemValue(
+  item: unknown,
+  exeContext: ExecutionContext,
+  itemType: GraphQLOutputType,
+  fieldGroup: FieldGroup,
+  info: GraphQLResolveInfo,
+  itemPath: Path,
+): Promise<unknown> {
+  try {
+    const resolved = await item;
+    let completed = completeValue(
+      exeContext,
+      itemType,
+      fieldGroup,
+      info,
+      itemPath,
+      resolved,
+    );
+    if (isPromise(completed)) {
+      completed = await completed;
+    }
+    return completed;
+  } catch (rawError) {
+    handleFieldError(rawError, exeContext, itemType, fieldGroup, itemPath);
+    return null;
+  }
 }
 
 /**
