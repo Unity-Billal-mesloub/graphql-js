@@ -108,8 +108,11 @@ export function VariablesInAllowedPositionRule(
 
 /**
  * Returns true if the variable is allowed in the location it was found,
- * which includes considering if default values exist for either the variable
+ * including considering if default values exist for either the variable
  * or the location at which it is located.
+ *
+ * OneOf Input Object Type fields are considered separately above to
+ * provide a more descriptive error message.
  */
 function allowedVariableUsage(
   schema: GraphQLSchema,
