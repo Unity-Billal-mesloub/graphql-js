@@ -21,8 +21,7 @@ export default tsConfig(
       'npmDist',
       'npmEsmDist',
       'denoDist',
-      'websiteDist',
-      'website',
+      'website/.next',
       'integrationTests/ts/*.ts',
     ],
   },
@@ -881,8 +880,26 @@ export default tsConfig(
     rules: {
       ...reactHooksPlugin.configs.recommended.rules,
       'no-restricted-exports': 'off',
+      'import/extensions': [
+        'error',
+        'ignorePackages',
+        {
+          ts: 'never',
+          tsx: 'never',
+        },
+      ],
       'import/no-default-export': 'off',
+      'import/no-extraneous-dependencies': 'off',
       'import/no-nodejs-modules': 'off',
+      'n/no-missing-import': 'off', // allows linting from root of project when website packages are not installed
+      'n/file-extension-in-import': [
+        'error',
+        'always',
+        {
+          '': 'never',
+        },
+      ],
+      'import/unambiguous': 'off',
     },
   },
 );
