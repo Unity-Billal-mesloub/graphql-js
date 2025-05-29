@@ -25,8 +25,20 @@ overrides:
       - swcrc
       - noreferrer
       - xlink
+      - codegen
       - composability
       - deduplication
+      - debuggable
+      - subschema
+      - subschemas
+      - NATS
+      - benjie
+      - codegen
+      - URQL
+      - tada
+      - Graphile
+      - precompiled
+      - debuggable
 
 ignoreRegExpList:
   - u\{[0-9a-f]{1,8}\}
@@ -63,6 +75,7 @@ words:
   - ruru
   - oneof
   - vercel
+  - unbatched
 
   # used as href anchors
   - graphqlerror
@@ -118,3 +131,6 @@ words:
   - XXXF
   - bfnrt
   - wrds
+  - overcomplicating
+  - cacheable
+  - pino

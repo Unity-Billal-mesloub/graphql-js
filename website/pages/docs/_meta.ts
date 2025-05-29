@@ -12,25 +12,37 @@ const meta = {
   'object-types': '',
   'mutations-and-input-types': '',
   'authentication-and-express-middleware': '',
+  'authorization-strategies': '',
   '-- 2': {
     type: 'separator',
     title: 'Advanced Guides',
   },
   'constructing-types': '',
+  nullability: '',
   'abstract-types': '',
   'oneof-input-objects': '',
   'defer-stream': '',
+  subscriptions: '',
+  'type-generation': '',
   'cursor-based-pagination': '',
   'custom-scalars': '',
   'advanced-custom-scalars': '',
+  'operation-complexity-controls': '',
   'n1-dataloader': '',
+  'caching-strategies': '',
   'resolver-anatomy': '',
   'graphql-errors': '',
+  'using-directives': '',
   '-- 3': {
+    type: 'separator',
+    title: 'Testing',
+  },
+  '-- 4': {
     type: 'separator',
     title: 'FAQ',
   },
   'going-to-production': '',
+  'scaling-graphql': '',
 };
 
 export default meta;
