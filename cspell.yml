@@ -28,6 +28,10 @@ overrides:
       - composability
       - deduplication
       - NATS
+      - benjie
+      - codegen
+      - URQL
+      - tada
 
 ignoreRegExpList:
   - u\{[0-9a-f]{1,8}\}
