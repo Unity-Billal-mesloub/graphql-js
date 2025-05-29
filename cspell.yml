@@ -27,11 +27,14 @@ overrides:
       - xlink
       - composability
       - deduplication
+      - subschema
+      - subschemas
       - NATS
       - benjie
       - codegen
       - URQL
       - tada
+      - Graphile
 
 ignoreRegExpList:
   - u\{[0-9a-f]{1,8}\}
@@ -68,6 +71,7 @@ words:
   - ruru
   - oneof
   - vercel
+  - unbatched
 
   # used as href anchors
   - graphqlerror
@@ -123,5 +127,7 @@ words:
   - XXXF
   - bfnrt
   - wrds
+  - overcomplicating
+  - cacheable
   - pino
   - debuggable

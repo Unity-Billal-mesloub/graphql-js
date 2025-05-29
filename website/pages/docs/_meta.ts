@@ -27,6 +27,7 @@ const meta = {
   'custom-scalars': '',
   'advanced-custom-scalars': '',
   'n1-dataloader': '',
+  'caching-strategies': '',
   'resolver-anatomy': '',
   'graphql-errors': '',
   'using-directives': '',
@@ -35,6 +36,7 @@ const meta = {
     title: 'FAQ',
   },
   'going-to-production': '',
+  'scaling-graphql': '',
 };
 
 export default meta;
