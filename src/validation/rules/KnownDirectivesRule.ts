@@ -127,8 +127,9 @@ function getDirectiveLocationForASTPath(
       return parentNode.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION
         ? DirectiveLocation.INPUT_FIELD_DEFINITION
         : DirectiveLocation.ARGUMENT_DEFINITION;
-    } /* c8 ignore next 3 */
+    }
     // Not reachable, all possible types have been considered.
+    /* c8 ignore next 2 */
     default:
       invariant(false, 'Unexpected kind: ' + inspect(appliedTo.kind));
   }
