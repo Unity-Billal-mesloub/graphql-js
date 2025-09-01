@@ -1491,15 +1491,15 @@ export class Parser {
     throw this.unexpected(start);
   }
 
-  // Schema Coordinates
+  // Implements the parsing rules in the Schema Coordinates section.
 
   /**
    * SchemaCoordinate :
    *   - Name
    *   - Name . Name
    *   - Name . Name ( Name : )
-   *   - \@ Name
-   *   - \@ Name ( Name : )
+   *   - @ Name
+   *   - @ Name ( Name : )
    */
   parseSchemaCoordinate(): SchemaCoordinateNode {
     const start = this._lexer.token;

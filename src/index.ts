@@ -330,7 +330,6 @@ export type {
   UnionTypeExtensionNode,
   EnumTypeExtensionNode,
   InputObjectTypeExtensionNode,
-  // Schema Coordinates
   SchemaCoordinateNode,
   TypeCoordinateNode,
   MemberCoordinateNode,

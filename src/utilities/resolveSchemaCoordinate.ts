@@ -148,9 +148,7 @@ function resolveMemberCoordinate(
     !isInterfaceType(type)
   ) {
     throw new Error(
-      `Expected ${inspect(
-        typeName,
-      )} to be an Enum, Input Object, Object or Interface type.`,
+      `Expected ${inspect(typeName)} to be an Enum, Input Object, Object or Interface type.`,
     );
   }
 
@@ -185,7 +183,7 @@ function resolveMemberCoordinate(
   // 6. Otherwise:
   // 1. Let {fieldName} be the value of the second {Name}.
   const fieldName = schemaCoordinate.memberName.value;
-  const field = type.getFields()[fieldName];
+  const field = schema.getField(type, fieldName);
 
   // 2. Return the field of {type} named {fieldName} if it exists.
   if (field == null) {
@@ -222,21 +220,19 @@ function resolveArgumentCoordinate(
   // 4. Let {fieldName} be the value of the second {Name}.
   // 5. Let {field} be the field of {type} named {fieldName}.
   const fieldName = schemaCoordinate.fieldName.value;
-  const field = type.getFields()[fieldName];
+  const field = schema.getField(type, fieldName);
 
   // 7. Assert: {field} must exist.
   if (field == null) {
     throw new Error(
-      `Expected ${inspect(fieldName)} to exist as a field of type ${inspect(
-        typeName,
-      )} in the schema.`,
+      `Expected ${inspect(fieldName)} to exist as a field of type ${inspect(typeName)} in the schema.`,
     );
   }
 
   // 7. Let {fieldArgumentName} be the value of the third {Name}.
   const fieldArgumentName = schemaCoordinate.argumentName.value;
   const fieldArgument = field.args.find(
-    (arg: GraphQLArgument) => arg.name === fieldArgumentName,
+    (arg) => arg.name === fieldArgumentName,
   );
 
   // 8. Return the argument of {field} named {fieldArgumentName} if it exists.
@@ -248,7 +244,7 @@ function resolveArgumentCoordinate(
 }
 
 /**
- * DirectiveCoordinate : \@ Name
+ * DirectiveCoordinate : @ Name
  */
 function resolveDirectiveCoordinate(
   schema: GraphQLSchema,
@@ -267,7 +263,7 @@ function resolveDirectiveCoordinate(
 }
 
 /**
- * DirectiveArgumentCoordinate : \@ Name ( Name : )
+ * DirectiveArgumentCoordinate : @ Name ( Name : )
  */
 function resolveDirectiveArgumentCoordinate(
   schema: GraphQLSchema,
@@ -281,9 +277,7 @@ function resolveDirectiveArgumentCoordinate(
   // 3. Assert {directive} must exist.
   if (!directive) {
     throw new Error(
-      `Expected ${inspect(
-        directiveName,
-      )} to be defined as a directive in the schema.`,
+      `Expected ${inspect(directiveName)} to be defined as a directive in the schema.`,
     );
   }
 

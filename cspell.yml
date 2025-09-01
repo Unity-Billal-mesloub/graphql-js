@@ -21,6 +21,7 @@ overrides:
       - html
     words:
       - craco
+      - esbuild
       - swcrc
       - codegen
       - subschema
@@ -30,16 +31,14 @@ overrides:
       - URQL
       - tada
       - Graphile
-      - esbuild
 
 validateDirectives: true
 ignoreRegExpList:
   - u\{[0-9a-f]{1,8}\}
 
 words:
-  - Coodinate
-  - metafield
   - graphiql
+  - metafield
   - uncoerce
   - uncoerced
 

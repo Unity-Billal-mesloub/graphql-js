@@ -144,14 +144,12 @@ describe('AST node predicates', () => {
   });
 
   it('isSchemaCoordinateNode', () => {
-    expect(
-      [
-        Kind.TYPE_COORDINATE,
-        Kind.MEMBER_COORDINATE,
-        Kind.ARGUMENT_COORDINATE,
-        Kind.DIRECTIVE_COORDINATE,
-        Kind.DIRECTIVE_ARGUMENT_COORDINATE,
-      ].every((kind) => isSchemaCoordinateNode({ kind } as ASTNode)),
-    ).to.equal(true);
+    expect(filterNodes(isSchemaCoordinateNode)).to.deep.equal([
+      'ArgumentCoordinate',
+      'DirectiveArgumentCoordinate',
+      'DirectiveCoordinate',
+      'MemberCoordinate',
+      'TypeCoordinate',
+    ]);
   });
 });
