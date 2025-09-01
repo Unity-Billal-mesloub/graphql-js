@@ -52,10 +52,10 @@ jobs:
 
       - name: Check if commit contains files that should be ignored
         run: |
-          git clone --depth 1 https://github.com/github/gitignore.git --revision b19bb58983cdae1e3a3fd6eafba0b9f2ec3c53ca
+          git clone --depth 1 https://github.com/github/gitignore.git
 
-          rm gitignore/ModelSim.gitignore
-          rm gitignore/Global/Images.gitignore
+          rm -f gitignore/Global/ModelSim.gitignore
+          rm -f gitignore/Global/Images.gitignore
           cat gitignore/Node.gitignore gitignore/Global/*.gitignore > all.gitignore
 
           IGNORED_FILES=$(git ls-files --cached --ignored --exclude-from=all.gitignore)
