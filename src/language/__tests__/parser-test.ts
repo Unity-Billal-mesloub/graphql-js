@@ -258,6 +258,7 @@ describe('Parser', () => {
       definitions: [
         {
           kind: Kind.OPERATION_DEFINITION,
+          description: undefined,
           loc: { start: 0, end: 40 },
           operation: 'query',
           name: undefined,
@@ -349,6 +350,7 @@ describe('Parser', () => {
         {
           kind: Kind.OPERATION_DEFINITION,
           loc: { start: 0, end: 29 },
+          description: undefined,
           operation: 'query',
           name: undefined,
           variableDefinitions: [],
@@ -379,6 +381,75 @@ describe('Parser', () => {
                       name: {
                         kind: Kind.NAME,
                         loc: { start: 21, end: 23 },
+                        value: 'id',
+                      },
+                      arguments: [],
+                      directives: [],
+                      selectionSet: undefined,
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+  });
+
+  it('creates ast from nameless query with description', () => {
+    const result = parse(dedent`
+      "Description"
+      query {
+        node {
+          id
+        }
+      }
+    `);
+
+    expectJSON(result).toDeepEqual({
+      kind: Kind.DOCUMENT,
+      loc: { start: 0, end: 43},
+      definitions: [
+        {
+          kind: Kind.OPERATION_DEFINITION,
+          loc: { start: 0, end: 43 },
+          description: {
+            kind: Kind.STRING,
+            loc: { start: 0, end: 13 },
+            value: 'Description',
+            block: false,
+          },
+          operation: 'query',
+          name: undefined,
+          variableDefinitions: [],
+          directives: [],
+          selectionSet: {
+            kind: Kind.SELECTION_SET,
+            loc: { start: 20, end: 43 },
+            selections: [
+              {
+                kind: Kind.FIELD,
+                loc: { start: 24, end: 41 },
+                alias: undefined,
+                name: {
+                  kind: Kind.NAME,
+                  loc: { start: 24, end: 28 },
+                  value: 'node',
+                },
+                arguments: [],
+                directives: [],
+                selectionSet: {
+                  kind: Kind.SELECTION_SET,
+                  loc: { start: 29, end: 41 },
+                  selections: [
+                    {
+                      kind: Kind.FIELD,
+                      loc: { start: 35, end: 37 },
+                      alias: undefined,
+                      name: {
+                        kind: Kind.NAME,
+                        loc: { start: 35, end: 37 },
                         value: 'id',
                       },
                       arguments: [],
@@ -655,6 +726,95 @@ describe('Parser', () => {
           },
         },
       });
+    });
+  });
+
+    describe('operation and variable definition descriptions', () => {
+    it('parses operation with description and variable descriptions', () => {
+      const result = parse(dedent`
+        "Operation description"
+        query myQuery(
+          "Variable a description"
+          $a: Int,
+          """Variable b\nmultiline description"""
+          $b: String
+        ) {
+          field(a: $a, b: $b)
+        }
+      `);
+      // Find the operation definition
+      const opDef = result.definitions.find(
+        (d) => d.kind === Kind.OPERATION_DEFINITION,
+      );
+      if (!opDef || opDef.kind !== Kind.OPERATION_DEFINITION) {
+        throw new Error('No operation definition found');
+      }
+      expect(opDef.description?.value).to.equal('Operation description');
+      expect(opDef.name?.value).to.equal('myQuery');
+      expect(opDef.variableDefinitions?.[0].description?.value).to.equal(
+        'Variable a description',
+      );
+      expect(opDef.variableDefinitions?.[0].description?.block).to.equal(false);
+      expect(opDef.variableDefinitions?.[1].description?.value).to.equal(
+        'Variable b\nmultiline description',
+      );
+      expect(opDef.variableDefinitions?.[1].description?.block).to.equal(true);
+      expect(opDef.variableDefinitions?.[0].variable.name.value).to.equal('a');
+      expect(opDef.variableDefinitions?.[1].variable.name.value).to.equal('b');
+      // Check type names safely
+      const typeA = opDef.variableDefinitions?.[0].type;
+      if (typeA && typeA.kind === Kind.NAMED_TYPE) {
+        expect(typeA.name.value).to.equal('Int');
+      }
+      const typeB = opDef.variableDefinitions?.[1].type;
+      if (typeB && typeB.kind === Kind.NAMED_TYPE) {
+        expect(typeB.name.value).to.equal('String');
+      }
+    });
+
+    it('parses variable definition with description, default value, and directives', () => {
+      const result = parse(dedent`
+        query (
+          "desc"
+          $foo: Int = 42 @dir
+        ) {
+          field(foo: $foo)
+        }
+      `);
+      const opDef = result.definitions.find(
+        (d) => d.kind === Kind.OPERATION_DEFINITION,
+      );
+      if (!opDef || opDef.kind !== Kind.OPERATION_DEFINITION) {
+        throw new Error('No operation definition found');
+      }
+      const varDef = opDef.variableDefinitions?.[0];
+      expect(varDef?.description?.value).to.equal('desc');
+      expect(varDef?.variable.name.value).to.equal('foo');
+      if (varDef?.type.kind === Kind.NAMED_TYPE) {
+        expect(varDef.type.name.value).to.equal('Int');
+      }
+      if (varDef?.defaultValue && 'value' in varDef.defaultValue) {
+        expect(varDef.defaultValue.value).to.equal('42');
+      }
+      expect(varDef?.directives?.[0].name.value).to.equal('dir');
+    });
+
+    it('parses fragment with variable description (legacy)', () => {
+      const result = parse('fragment Foo("desc" $foo: Int) on Bar { baz }', {
+        allowLegacyFragmentVariables: true,
+      });
+      const fragDef = result.definitions.find(
+        (d) => d.kind === Kind.FRAGMENT_DEFINITION,
+      );
+      if (!fragDef || fragDef.kind !== Kind.FRAGMENT_DEFINITION) {
+        throw new Error('No fragment definition found');
+      }
+      const varDef = fragDef.variableDefinitions?.[0];
+      expect(varDef?.description?.value).to.equal('desc');
+      expect(varDef?.variable.name.value).to.equal('foo');
+      if (varDef?.type.kind === Kind.NAMED_TYPE) {
+        expect(varDef.type.name.value).to.equal('Int');
+      }
     });
   });
 });

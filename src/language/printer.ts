@@ -28,8 +28,10 @@ const printDocASTReducer: ASTReducer<string> = {
 
   OperationDefinition: {
     leave(node) {
-      const varDefs = wrap('(', join(node.variableDefinitions, ', '), ')');
-      const prefix = join(
+      const varDefs = hasMultilineItems(node.variableDefinitions)
+        ? wrap('(\n', join(node.variableDefinitions, '\n'), '\n)')
+        : wrap('(', join(node.variableDefinitions, ', '), ')');
+      const prefix = wrap('', node.description, '\n') + join(
         [
           node.operation,
           join([node.name, varDefs]),
@@ -45,7 +47,8 @@ const printDocASTReducer: ASTReducer<string> = {
   },
 
   VariableDefinition: {
-    leave: ({ variable, type, defaultValue, directives }) =>
+    leave: ({ variable, type, defaultValue, directives, description }) =>
+      wrap('', description, '\n') +
       variable +
       ': ' +
       type +
@@ -96,7 +99,9 @@ const printDocASTReducer: ASTReducer<string> = {
       variableDefinitions,
       directives,
       selectionSet,
+      description
     }) =>
+      wrap('', description, '\n') +
       // Note: fragment variable definitions are experimental and may be changed
       // or removed in the future.
       `fragment ${name}${wrap('(', join(variableDefinitions, ', '), ')')} ` +

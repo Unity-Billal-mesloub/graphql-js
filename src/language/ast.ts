@@ -198,12 +198,13 @@ export const QueryDocumentKeys: {
 
   Document: ['definitions'],
   OperationDefinition: [
+    'description',
     'name',
     'variableDefinitions',
     'directives',
     'selectionSet',
   ],
-  VariableDefinition: ['variable', 'type', 'defaultValue', 'directives'],
+  VariableDefinition: ['description', 'variable', 'type', 'defaultValue', 'directives'],
   Variable: ['name'],
   SelectionSet: ['selections'],
   Field: ['alias', 'name', 'arguments', 'directives', 'selectionSet'],
@@ -212,6 +213,7 @@ export const QueryDocumentKeys: {
   FragmentSpread: ['name', 'directives'],
   InlineFragment: ['typeCondition', 'directives', 'selectionSet'],
   FragmentDefinition: [
+    'description',
     'name',
     // Note: fragment variable definitions are deprecated and will removed in v17.0.0
     'variableDefinitions',
@@ -316,6 +318,7 @@ export type ExecutableDefinitionNode =
 
 export interface OperationDefinitionNode {
   readonly kind: Kind.OPERATION_DEFINITION;
+  readonly description?: StringValueNode;
   readonly loc?: Location;
   readonly operation: OperationTypeNode;
   readonly name?: NameNode;
@@ -333,6 +336,7 @@ export { OperationTypeNode };
 
 export interface VariableDefinitionNode {
   readonly kind: Kind.VARIABLE_DEFINITION;
+  readonly description?: StringValueNode;
   readonly loc?: Location;
   readonly variable: VariableNode;
   readonly type: TypeNode;
@@ -397,6 +401,7 @@ export interface InlineFragmentNode {
 
 export interface FragmentDefinitionNode {
   readonly kind: Kind.FRAGMENT_DEFINITION;
+  readonly description?: StringValueNode;
   readonly loc?: Location;
   readonly name: NameNode;
   /** @deprecated variableDefinitions will be removed in v17.0.0 */
