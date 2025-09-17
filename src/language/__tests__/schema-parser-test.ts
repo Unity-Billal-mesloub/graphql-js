@@ -331,7 +331,7 @@ describe('Schema Parser', () => {
       }
     `).to.deep.equal({
       message:
-        'Syntax Error: Unexpected description, descriptions are not supported on type extensions and shorthand queries.',
+        'Syntax Error: Unexpected description, only GraphQL definitions support descriptions.',
       locations: [{ line: 2, column: 7 }],
     });
 
@@ -353,7 +353,7 @@ describe('Schema Parser', () => {
       }
     `).to.deep.equal({
       message:
-        'Syntax Error: Unexpected description, descriptions are not supported on type extensions and shorthand queries.',
+        'Syntax Error: Unexpected description, only GraphQL definitions support descriptions.',
       locations: [{ line: 2, column: 7 }],
     });
 

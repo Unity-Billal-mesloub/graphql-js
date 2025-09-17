@@ -31,14 +31,16 @@ const printDocASTReducer: ASTReducer<string> = {
       const varDefs = hasMultilineItems(node.variableDefinitions)
         ? wrap('(\n', join(node.variableDefinitions, '\n'), '\n)')
         : wrap('(', join(node.variableDefinitions, ', '), ')');
-      const prefix = wrap('', node.description, '\n') + join(
-        [
-          node.operation,
-          join([node.name, varDefs]),
-          join(node.directives, ' '),
-        ],
-        ' ',
-      );
+      const prefix =
+        wrap('', node.description, '\n') +
+        join(
+          [
+            node.operation,
+            join([node.name, varDefs]),
+            join(node.directives, ' '),
+          ],
+          ' ',
+        );
 
       // Anonymous queries with no directives or variable definitions can use
       // the query short form.
@@ -99,7 +101,7 @@ const printDocASTReducer: ASTReducer<string> = {
       variableDefinitions,
       directives,
       selectionSet,
-      description
+      description,
     }) =>
       wrap('', description, '\n') +
       // Note: fragment variable definitions are experimental and may be changed

@@ -268,6 +268,13 @@ export class Parser {
       ? this._lexer.lookahead()
       : this._lexer.token;
 
+    if (hasDescription && keywordToken.kind === TokenKind.BRACE_L) {
+      throw syntaxError(
+        this._lexer.source,
+        this._lexer.token.start,
+        'Unexpected description, descriptions are not supported on shorthand queries.',
+      );
+    }
     if (keywordToken.kind === TokenKind.NAME) {
       switch (keywordToken.value) {
         case 'schema':
@@ -301,7 +308,7 @@ export class Parser {
         throw syntaxError(
           this._lexer.source,
           this._lexer.token.start,
-          'Unexpected description, descriptions are not supported on type extensions and shorthand queries.',
+          'Unexpected description, only GraphQL definitions support descriptions.',
         );
       }
 
@@ -551,7 +558,7 @@ export class Parser {
     }
     return this.node<FragmentDefinitionNode>(start, {
       kind: Kind.FRAGMENT_DEFINITION,
-    description,
+      description,
       name: this.parseFragmentName(),
       typeCondition: (this.expectKeyword('on'), this.parseNamedType()),
       directives: this.parseDirectives(false),
