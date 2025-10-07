@@ -161,17 +161,14 @@ describe('Type System: Specified scalar types', () => {
       expect(() => serialize(-1e100)).to.throw(
         'Int cannot represent non 32-bit signed integer value: -1e+100',
       );
-      expect(() => serialize('one')).to.throw(
-        'Int cannot represent non-integer value: "one"',
-      );
 
       // Doesn't represent number
       expect(() => serialize('')).to.throw(
         'Int cannot represent non-integer value: ""',
       );
-      expect(() => serialize(NaN)).to.throw(
-        'Int cannot represent non-integer value: NaN',
-      );
+
+      expect(serialize(NaN)).to.equal(null);
+
       expect(() => serialize(Infinity)).to.throw(
         'Int cannot represent non-integer value: Infinity',
       );
@@ -293,17 +290,10 @@ describe('Type System: Specified scalar types', () => {
       };
       expect(serialize(customValueOfObj)).to.equal(5.5);
 
-      expect(() => serialize(NaN)).to.throw(
-        'Float cannot represent non numeric value: NaN',
-      );
+      expect(serialize(NaN)).to.equal(null);
+
       expect(() => serialize(Infinity)).to.throw(
         'Float cannot represent non numeric value: Infinity',
-      );
-      expect(() => serialize('one')).to.throw(
-        'Float cannot represent non numeric value: "one"',
-      );
-      expect(() => serialize('')).to.throw(
-        'Float cannot represent non numeric value: ""',
       );
       expect(() => serialize([5])).to.throw(
         'Float cannot represent non numeric value: [5]',

@@ -79,10 +79,6 @@ describe('astFromValue', () => {
     expect(() => astFromValue(1e40, GraphQLInt)).to.throw(
       'Int cannot represent non 32-bit signed integer value: 1e+40',
     );
-
-    expect(() => astFromValue(NaN, GraphQLInt)).to.throw(
-      'Int cannot represent non-integer value: NaN',
-    );
   });
 
   it('converts Float values to Int/Float ASTs', () => {

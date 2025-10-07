@@ -21,7 +21,7 @@ export const GRAPHQL_MAX_INT = 2147483647;
  * */
 export const GRAPHQL_MIN_INT = -2147483648;
 
-export const GraphQLInt = new GraphQLScalarType<number>({
+export const GraphQLInt = new GraphQLScalarType<number | null>({
   name: 'Int',
   description:
     'The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.',
@@ -36,6 +36,10 @@ export const GraphQLInt = new GraphQLScalarType<number>({
     let num = coercedValue;
     if (typeof coercedValue === 'string' && coercedValue !== '') {
       num = Number(coercedValue);
+    }
+
+    if (typeof num === 'number' && Number.isNaN(num)) {
+      return null;
     }
 
     if (typeof num !== 'number' || !Number.isInteger(num)) {
@@ -84,7 +88,7 @@ export const GraphQLInt = new GraphQLScalarType<number>({
   },
 });
 
-export const GraphQLFloat = new GraphQLScalarType<number>({
+export const GraphQLFloat = new GraphQLScalarType<number | null>({
   name: 'Float',
   description:
     'The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).',
@@ -99,6 +103,10 @@ export const GraphQLFloat = new GraphQLScalarType<number>({
     let num = coercedValue;
     if (typeof coercedValue === 'string' && coercedValue !== '') {
       num = Number(coercedValue);
+    }
+
+    if (typeof num === 'number' && Number.isNaN(num)) {
+      return null;
     }
 
     if (typeof num !== 'number' || !Number.isFinite(num)) {
