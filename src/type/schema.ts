@@ -6,7 +6,7 @@ import type { Maybe } from '../jsutils/Maybe';
 import type { ObjMap } from '../jsutils/ObjMap';
 import { toObjMap } from '../jsutils/toObjMap';
 
-import type { ErrorBehavior } from '../error/ErrorBehavior';
+import type { GraphQLErrorBehavior } from '../error/ErrorBehavior';
 import { isErrorBehavior } from '../error/ErrorBehavior';
 import type { GraphQLError } from '../error/GraphQLError';
 
@@ -132,7 +132,7 @@ export interface GraphQLSchemaExtensions {
 export class GraphQLSchema {
   description: Maybe<string>;
   /** @experimental */
-  readonly defaultErrorBehavior: ErrorBehavior;
+  readonly defaultErrorBehavior: GraphQLErrorBehavior;
   extensions: Readonly<GraphQLSchemaExtensions>;
   astNode: Maybe<SchemaDefinitionNode>;
   extensionASTNodes: ReadonlyArray<SchemaExtensionNode>;
@@ -410,7 +410,7 @@ export interface GraphQLSchemaConfig extends GraphQLSchemaValidationOptions {
    *
    * @experimental
    */
-  defaultErrorBehavior?: Maybe<ErrorBehavior>;
+  defaultErrorBehavior?: Maybe<GraphQLErrorBehavior>;
   extensions?: Maybe<Readonly<GraphQLSchemaExtensions>>;
   astNode?: Maybe<SchemaDefinitionNode>;
   extensionASTNodes?: Maybe<ReadonlyArray<SchemaExtensionNode>>;

@@ -30,7 +30,6 @@ import {
   DEFAULT_DEPRECATION_REASON,
   isSpecifiedDirective,
 } from '../type/directives';
-import { isSpecifiedEnumType } from '../type/enums';
 import { isIntrospectionType } from '../type/introspection';
 import { isSpecifiedScalarType } from '../type/scalars';
 import type { GraphQLSchema } from '../type/schema';
@@ -46,23 +45,11 @@ export function printSchema(schema: GraphQLSchema): string {
 }
 
 export function printIntrospectionSchema(schema: GraphQLSchema): string {
-  return printFilteredSchema(
-    schema,
-    isSpecifiedDirective,
-    isIntrospectionSchemaType,
-  );
+  return printFilteredSchema(schema, isSpecifiedDirective, isIntrospectionType);
 }
 
 function isDefinedType(type: GraphQLNamedType): boolean {
-  return (
-    !isSpecifiedScalarType(type) &&
-    !isSpecifiedEnumType(type) &&
-    !isIntrospectionType(type)
-  );
-}
-
-function isIntrospectionSchemaType(type: GraphQLNamedType): boolean {
-  return isIntrospectionType(type) || isSpecifiedEnumType(type);
+  return !isSpecifiedScalarType(type) && !isIntrospectionType(type);
 }
 
 function printFilteredSchema(

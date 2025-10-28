@@ -65,7 +65,6 @@ import {
   isDirective,
   isSpecifiedDirective,
 } from '../directives';
-import { GraphQLErrorBehavior, isSpecifiedEnumType } from '../enums';
 import {
   GraphQLBoolean,
   GraphQLFloat,
@@ -164,16 +163,6 @@ describe('Type predicates', () => {
 
     it('returns false for custom scalar', () => {
       expect(isSpecifiedScalarType(ScalarType)).to.equal(false);
-    });
-  });
-
-  describe('isSpecifiedEnumType', () => {
-    it('returns true for specified enums', () => {
-      expect(isSpecifiedEnumType(GraphQLErrorBehavior)).to.equal(true);
-    });
-
-    it('returns false for custom scalar', () => {
-      expect(isSpecifiedEnumType(EnumType)).to.equal(false);
     });
   });
 

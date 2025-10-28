@@ -27,7 +27,6 @@ import {
   isOutputType,
 } from '../type/definition';
 import { GraphQLDirective } from '../type/directives';
-import { specifiedEnumTypes } from '../type/enums';
 import { introspectionTypes, TypeKind } from '../type/introspection';
 import { specifiedScalarTypes } from '../type/scalars';
 import type { GraphQLSchemaValidationOptions } from '../type/schema';
@@ -84,11 +83,7 @@ export function buildClientSchema(
   );
 
   // Include standard types only if they are used.
-  for (const stdType of [
-    ...specifiedScalarTypes,
-    ...specifiedEnumTypes,
-    ...introspectionTypes,
-  ]) {
+  for (const stdType of [...specifiedScalarTypes, ...introspectionTypes]) {
     if (typeMap[stdType.name]) {
       typeMap[stdType.name] = stdType;
     }

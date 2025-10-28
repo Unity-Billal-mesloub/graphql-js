@@ -5,7 +5,7 @@ import { keyMap } from '../jsutils/keyMap';
 import { mapValue } from '../jsutils/mapValue';
 import type { Maybe } from '../jsutils/Maybe';
 
-import type { ErrorBehavior } from '../error/ErrorBehavior';
+import type { GraphQLErrorBehavior } from '../error/ErrorBehavior';
 
 import type {
   DirectiveDefinitionNode,
@@ -72,7 +72,6 @@ import {
   GraphQLOneOfDirective,
   GraphQLSpecifiedByDirective,
 } from '../type/directives';
-import { isSpecifiedEnumType, specifiedEnumTypes } from '../type/enums';
 import { introspectionTypes, isIntrospectionType } from '../type/introspection';
 import { isSpecifiedScalarType, specifiedScalarTypes } from '../type/scalars';
 import type {
@@ -169,7 +168,7 @@ export function extendSchemaImpl(
     }
   }
 
-  let defaultErrorBehavior: Maybe<ErrorBehavior> = schemaDef
+  let defaultErrorBehavior: Maybe<GraphQLErrorBehavior> = schemaDef
     ? getDefaultErrorBehavior(schemaDef)
     : null;
   for (const extensionNode of schemaExtensions) {
@@ -258,11 +257,7 @@ export function extendSchemaImpl(
   }
 
   function extendNamedType(type: GraphQLNamedType): GraphQLNamedType {
-    if (
-      isIntrospectionType(type) ||
-      isSpecifiedScalarType(type) ||
-      isSpecifiedEnumType(type)
-    ) {
+    if (isIntrospectionType(type) || isSpecifiedScalarType(type)) {
       // Builtin types are not extended.
       return type;
     }
@@ -672,7 +667,7 @@ export function extendSchemaImpl(
 }
 
 const stdTypeMap = keyMap(
-  [...specifiedScalarTypes, ...specifiedEnumTypes, ...introspectionTypes],
+  [...specifiedScalarTypes, ...introspectionTypes],
   (type) => type.name,
 );
 
@@ -714,7 +709,7 @@ function isOneOf(node: InputObjectTypeDefinitionNode): boolean {
  */
 function getDefaultErrorBehavior(
   node: SchemaDefinitionNode | SchemaExtensionNode,
-): Maybe<ErrorBehavior> {
+): Maybe<GraphQLErrorBehavior> {
   const behavior = getDirectiveValues(GraphQLBehaviorDirective, node);
   // @ts-expect-error validated by `getDirectiveValues`
   return behavior?.onError;

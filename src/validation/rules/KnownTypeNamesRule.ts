@@ -11,7 +11,6 @@ import {
 } from '../../language/predicates';
 import type { ASTVisitor } from '../../language/visitor';
 
-import { specifiedEnumTypes } from '../../type/enums';
 import { introspectionTypes } from '../../type/introspection';
 import { specifiedScalarTypes } from '../../type/scalars';
 
@@ -71,11 +70,9 @@ export function KnownTypeNamesRule(
   };
 }
 
-const standardTypeNames = [
-  ...specifiedScalarTypes,
-  ...specifiedEnumTypes,
-  ...introspectionTypes,
-].map((type) => type.name);
+const standardTypeNames = [...specifiedScalarTypes, ...introspectionTypes].map(
+  (type) => type.name,
+);
 
 function isSDLNode(value: ASTNode | ReadonlyArray<ASTNode>): boolean {
   return (

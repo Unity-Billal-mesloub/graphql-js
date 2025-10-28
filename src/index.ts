@@ -55,9 +55,6 @@ export {
   GraphQLString,
   GraphQLBoolean,
   GraphQLID,
-  // Standard GraphQL Enums
-  specifiedEnumTypes,
-  GraphQLErrorBehavior,
   // Int boundaries constants
   GRAPHQL_MAX_INT,
   GRAPHQL_MIN_INT,
@@ -82,6 +79,7 @@ export {
   __InputValue,
   __EnumValue,
   __TypeKind,
+  __ErrorBehavior,
   // Meta-field definitions.
   SchemaMetaFieldDef,
   TypeMetaFieldDef,
@@ -109,7 +107,6 @@ export {
   isRequiredArgument,
   isRequiredInputField,
   isSpecifiedScalarType,
-  isSpecifiedEnumType,
   isIntrospectionType,
   isSpecifiedDirective,
   // Assertions
@@ -399,7 +396,7 @@ export {
 } from './error/index';
 
 export type {
-  ErrorBehavior,
+  GraphQLErrorBehavior,
   GraphQLErrorOptions,
   GraphQLFormattedError,
   GraphQLErrorExtensions,
