@@ -81,6 +81,8 @@ export {
   specifiedDirectives,
   GraphQLIncludeDirective,
   GraphQLSkipDirective,
+  GraphQLDeferDirective,
+  GraphQLStreamDirective,
   GraphQLDeprecatedDirective,
   GraphQLSpecifiedByDirective,
   GraphQLOneOfDirective,
@@ -353,6 +355,8 @@ export {
   execute,
   executeQueryOrMutationOrSubscriptionEvent,
   executeSubscriptionEvent,
+  experimentalExecuteIncrementally,
+  experimentalExecuteQueryOrMutationOrSubscriptionEvent,
   executeSync,
   defaultFieldResolver,
   defaultTypeResolver,
@@ -368,7 +372,19 @@ export type {
   ExecutionArgs,
   ValidatedExecutionArgs,
   ExecutionResult,
+  ExperimentalIncrementalExecutionResults,
+  InitialIncrementalExecutionResult,
+  SubsequentIncrementalExecutionResult,
+  IncrementalDeferResult,
+  IncrementalStreamResult,
+  IncrementalResult,
   FormattedExecutionResult,
+  FormattedExperimentalIncrementalExecutionResults,
+  FormattedInitialIncrementalExecutionResult,
+  FormattedSubsequentIncrementalExecutionResult,
+  FormattedIncrementalDeferResult,
+  FormattedIncrementalStreamResult,
+  FormattedIncrementalResult,
 } from './execution/index.js';
 
 // Validate GraphQL documents.
@@ -502,7 +518,6 @@ export {
   findBreakingChanges,
   findDangerousChanges,
   findSchemaChanges,
-  // Schema Coordinates
   resolveSchemaCoordinate,
   resolveASTSchemaCoordinate,
 } from './utilities/index.js';
@@ -535,6 +550,5 @@ export type {
   SafeChange,
   DangerousChange,
   TypedQueryDocumentNode,
-  // Schema Coordinates
   ResolvedSchemaElement,
 } from './utilities/index.js';

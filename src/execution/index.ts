@@ -6,6 +6,8 @@ export {
   executeQueryOrMutationOrSubscriptionEvent,
   executeSubscriptionEvent,
   executeSync,
+  experimentalExecuteIncrementally,
+  experimentalExecuteQueryOrMutationOrSubscriptionEvent,
   defaultFieldResolver,
   defaultTypeResolver,
   subscribe,
@@ -17,6 +19,21 @@ export type {
   ExecutionResult,
   FormattedExecutionResult,
 } from './Executor.js';
+
+export type {
+  ExperimentalIncrementalExecutionResults,
+  InitialIncrementalExecutionResult,
+  SubsequentIncrementalExecutionResult,
+  IncrementalDeferResult,
+  IncrementalStreamResult,
+  IncrementalResult,
+  FormattedExperimentalIncrementalExecutionResults,
+  FormattedInitialIncrementalExecutionResult,
+  FormattedSubsequentIncrementalExecutionResult,
+  FormattedIncrementalDeferResult,
+  FormattedIncrementalStreamResult,
+  FormattedIncrementalResult,
+} from './incremental/IncrementalExecutor.js';
 
 export {
   getArgumentValues,

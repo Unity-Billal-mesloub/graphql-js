@@ -32,14 +32,14 @@ import { GraphQLSchema } from '../../type/schema.js';
 
 import { valueFromASTUntyped } from '../../utilities/valueFromASTUntyped.js';
 
-import { executeSync } from '../execute.js';
+import { executeSync, experimentalExecuteIncrementally } from '../execute.js';
 import { getVariableValues } from '../values.js';
 
 const TestFaultyScalarGraphQLError = new GraphQLError(
   'FaultyScalarErrorMessage',
   {
     extensions: {
-      code: 'FaultyScalarErrorMessageExtensionCode',
+      code: 'FaultyScalarErrorExtensionCode',
     },
   },
 );
@@ -318,28 +318,28 @@ describe('Execute: Handles inputs', () => {
           },
         });
       });
-    });
 
-    it('errors on faulty scalar type input', () => {
-      const result = executeQuery(`
-        {
-          fieldWithObjectInput(input: { c: "foo", e: "bar" })
-        }
-      `);
-
-      expectJSON(result).toDeepEqual({
-        data: {
-          fieldWithObjectInput: null,
-        },
-        errors: [
+      it('errors on faulty scalar type input', () => {
+        const result = executeQuery(`
           {
-            message:
-              'Argument "TestType.fieldWithObjectInput(input:)" has invalid value at .e: FaultyScalarErrorMessage',
-            path: ['fieldWithObjectInput'],
-            locations: [{ line: 3, column: 11 }],
-            extensions: { code: 'FaultyScalarErrorMessageExtensionCode' },
+            fieldWithObjectInput(input: {c: "foo", e: "bar"})
+          }
+        `);
+
+        expectJSON(result).toDeepEqual({
+          data: {
+            fieldWithObjectInput: null,
           },
-        ],
+          errors: [
+            {
+              message:
+                'Argument "TestType.fieldWithObjectInput(input:)" has invalid value at .e: FaultyScalarErrorMessage',
+              path: ['fieldWithObjectInput'],
+              locations: [{ line: 3, column: 13 }],
+              extensions: { code: 'FaultyScalarErrorExtensionCode' },
+            },
+          ],
+        });
       });
     });
 
@@ -492,7 +492,7 @@ describe('Execute: Handles inputs', () => {
               message:
                 'Variable "$input" has invalid value at .e: Argument "TestType.fieldWithObjectInput(input:)" has invalid value at .e: FaultyScalarErrorMessage',
               locations: [{ line: 2, column: 16 }],
-              extensions: { code: 'FaultyScalarErrorMessageExtensionCode' },
+              extensions: { code: 'FaultyScalarErrorExtensionCode' },
             },
           ],
         });
@@ -1642,7 +1642,6 @@ describe('Execute: Handles inputs', () => {
       });
     });
 
-    /* TODO: add back when @defer and @stream are supported
     it('when a nullable argument to a directive with a field default is not provided and shadowed by an operation variable', () => {
       // this test uses the @defer directive and incremental delivery because the `if` argument for skip/include have no field defaults
       const document = parse(
@@ -1660,6 +1659,6 @@ describe('Execute: Handles inputs', () => {
       );
       const result = experimentalExecuteIncrementally({ schema, document });
       expect(result).to.include.keys('initialResult', 'subsequentResults');
-    }); */
+    });
   });
 });

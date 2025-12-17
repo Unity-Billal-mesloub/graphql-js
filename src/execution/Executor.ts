@@ -3,6 +3,7 @@ import { invariant } from '../jsutils/invariant.js';
 import { isAsyncIterable } from '../jsutils/isAsyncIterable.js';
 import { isIterableObject } from '../jsutils/isIterableObject.js';
 import { isPromise } from '../jsutils/isPromise.js';
+import { memoize2 } from '../jsutils/memoize2.js';
 import { memoize3 } from '../jsutils/memoize3.js';
 import type { ObjMap } from '../jsutils/ObjMap.js';
 import type { Path } from '../jsutils/Path.js';
@@ -43,6 +44,7 @@ import type { GraphQLSchema } from '../type/schema.js';
 
 import { cancellablePromise } from './cancellablePromise.js';
 import type {
+  DeferUsage,
   FieldDetailsList,
   FragmentDetails,
   GroupedFieldSet,
@@ -52,36 +54,15 @@ import {
   collectSubfields as _collectSubfields,
 } from './collectFields.js';
 import { buildResolveInfo } from './execute.js';
+import type { StreamUsage } from './getStreamUsage.js';
+import { getStreamUsage as _getStreamUsage } from './getStreamUsage.js';
+import { returnIteratorCatchingErrors } from './returnIteratorCatchingErrors.js';
 import type { VariableValues } from './values.js';
 import { getArgumentValues } from './values.js';
 
 /* eslint-disable max-params */
 // This file contains a lot of such errors but we plan to refactor it anyway
 // so just disable it for entire file.
-
-/**
- * A memoized collection of relevant subfields with regard to the return
- * type. Memoizing ensures the subfields are not repeatedly calculated, which
- * saves overhead when resolving lists of values.
- */
-export const collectSubfields = memoize3(
-  (
-    validatedExecutionArgs: ValidatedExecutionArgs,
-    returnType: GraphQLObjectType,
-    fieldDetailsList: FieldDetailsList,
-  ) => {
-    const { schema, fragments, variableValues, hideSuggestions } =
-      validatedExecutionArgs;
-    return _collectSubfields(
-      schema,
-      fragments,
-      variableValues,
-      returnType,
-      fieldDetailsList,
-      hideSuggestions,
-    );
-  },
-);
 
 /**
  * Terminology
@@ -129,7 +110,39 @@ export interface ValidatedExecutionArgs {
   hideSuggestions: boolean;
   errorPropagation: boolean;
   externalAbortSignal: AbortSignal | undefined;
+  enableEarlyExecution: boolean;
 }
+
+/**
+ * A memoized collection of relevant subfields with regard to the return
+ * type. Memoizing ensures the subfields are not repeatedly calculated, which
+ * saves overhead when resolving lists of values.
+ */
+export const collectSubfields = memoize3(
+  (
+    validatedExecutionArgs: ValidatedExecutionArgs,
+    returnType: GraphQLObjectType,
+    fieldDetailsList: FieldDetailsList,
+  ) => {
+    const { schema, fragments, variableValues, hideSuggestions } =
+      validatedExecutionArgs;
+    return _collectSubfields(
+      schema,
+      fragments,
+      variableValues,
+      returnType,
+      fieldDetailsList,
+      hideSuggestions,
+    );
+  },
+);
+
+export const getStreamUsage = memoize2(
+  (
+    validatedExecutionArgs: ValidatedExecutionArgs,
+    fieldDetailsList: FieldDetailsList,
+  ) => _getStreamUsage(validatedExecutionArgs, fieldDetailsList),
+);
 
 /**
  * @internal
@@ -151,14 +164,14 @@ class CollectedErrors {
     // any of its ancestors has already been nulled via error propagation.
     // This check should be unnecessary for implementations able to implement
     // actual cancellation.
-    if (this._hasNulledPosition(path)) {
+    if (this.hasNulledPosition(path)) {
       return;
     }
     this._errorPositions.add(path);
     this._errors.push(error);
   }
 
-  private _hasNulledPosition(startPath: Path | undefined): boolean {
+  hasNulledPosition(startPath: Path | undefined): boolean {
     let path = startPath;
     while (path !== undefined) {
       if (this._errorPositions.has(path)) {
@@ -175,7 +188,9 @@ class CollectedErrors {
  *
  *   - `errors` is included when any errors occurred as a non-empty array.
  *   - `data` is the result of a successful execution of the query.
+ *   - `hasNext` is true if a future payload is expected.
  *   - `extensions` is reserved for adding non-standard properties.
+ *   - `incremental` is a list of the results from defer/stream directives.
  */
 export interface ExecutionResult<
   TData = ObjMap<unknown>,
@@ -196,7 +211,10 @@ export interface FormattedExecutionResult<
 }
 
 /** @internal */
-export class Executor {
+export class Executor<
+  TPositionContext = undefined, // No position context by default
+  TAlternativeInitialResponse = ExecutionResult, // No alternative by default
+> {
   validatedExecutionArgs: ValidatedExecutionArgs;
   finished: boolean;
   collectedErrors: CollectedErrors;
@@ -204,17 +222,26 @@ export class Executor {
   resolverAbortController: AbortController | undefined;
   sharedResolverAbortSignal: AbortSignal;
 
-  constructor(validatedExecutionArgs: ValidatedExecutionArgs) {
+  constructor(
+    validatedExecutionArgs: ValidatedExecutionArgs,
+    sharedResolverAbortSignal?: AbortSignal,
+  ) {
     this.validatedExecutionArgs = validatedExecutionArgs;
     this.finished = false;
     this.collectedErrors = new CollectedErrors();
     this.internalAbortController = new AbortController();
 
-    this.resolverAbortController = new AbortController();
-    this.sharedResolverAbortSignal = this.resolverAbortController.signal;
+    if (sharedResolverAbortSignal === undefined) {
+      this.resolverAbortController = new AbortController();
+      this.sharedResolverAbortSignal = this.resolverAbortController.signal;
+    } else {
+      this.sharedResolverAbortSignal = sharedResolverAbortSignal;
+    }
   }
 
-  executeQueryOrMutationOrSubscriptionEvent(): PromiseOrValue<ExecutionResult> {
+  executeQueryOrMutationOrSubscriptionEvent(): PromiseOrValue<
+    ExecutionResult | TAlternativeInitialResponse
+  > {
     const externalAbortSignal = this.validatedExecutionArgs.externalAbortSignal;
     let removeExternalAbortListener: (() => void) | undefined;
     if (externalAbortSignal) {
@@ -250,7 +277,7 @@ export class Executor {
         );
       }
 
-      const { groupedFieldSet } = collectFields(
+      const { groupedFieldSet, newDeferUsages } = collectFields(
         schema,
         fragments,
         variableValues,
@@ -259,11 +286,12 @@ export class Executor {
         hideSuggestions,
       );
 
-      const result = this.executeRootGroupedFieldSet(
+      const result = this.executeCollectedRootFields(
         operation.operation,
         rootType,
         rootValue,
         groupedFieldSet,
+        newDeferUsages,
       );
 
       if (isPromise(result)) {
@@ -308,10 +336,28 @@ export class Executor {
    * Given a completed execution context and data, build the `{ errors, data }`
    * response defined by the "Response" section of the GraphQL specification.
    */
-  buildResponse(data: ObjMap<unknown> | null): ExecutionResult {
+  buildResponse(
+    data: ObjMap<unknown> | null,
+  ): ExecutionResult | TAlternativeInitialResponse {
     this.resolverAbortController?.abort();
     const errors = this.collectedErrors.errors;
     return errors.length ? { errors, data } : { data };
+  }
+
+  executeCollectedRootFields(
+    operation: OperationTypeNode,
+    rootType: GraphQLObjectType,
+    rootValue: unknown,
+    originalGroupedFieldSet: GroupedFieldSet,
+    _newDeferUsages: ReadonlyArray<DeferUsage>,
+  ): PromiseOrValue<ObjMap<unknown>> {
+    return this.executeRootGroupedFieldSet(
+      operation,
+      rootType,
+      rootValue,
+      originalGroupedFieldSet,
+      undefined,
+    );
   }
 
   executeRootGroupedFieldSet(
@@ -319,6 +365,7 @@ export class Executor {
     rootType: GraphQLObjectType,
     rootValue: unknown,
     groupedFieldSet: GroupedFieldSet,
+    positionContext?: TPositionContext,
   ): PromiseOrValue<ObjMap<unknown>> {
     switch (operation) {
       case OperationTypeNode.QUERY:
@@ -327,6 +374,7 @@ export class Executor {
           rootValue,
           undefined,
           groupedFieldSet,
+          positionContext,
         );
       case OperationTypeNode.MUTATION:
         return this.executeFieldsSerially(
@@ -334,6 +382,7 @@ export class Executor {
           rootValue,
           undefined,
           groupedFieldSet,
+          positionContext,
         );
       case OperationTypeNode.SUBSCRIPTION:
         // TODO: deprecate `subscribe` and move all logic here
@@ -343,6 +392,7 @@ export class Executor {
           rootValue,
           undefined,
           groupedFieldSet,
+          positionContext,
         );
     }
   }
@@ -356,6 +406,7 @@ export class Executor {
     sourceValue: unknown,
     path: Path | undefined,
     groupedFieldSet: GroupedFieldSet,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ObjMap<unknown>> {
     return promiseReduce(
       groupedFieldSet,
@@ -369,6 +420,7 @@ export class Executor {
           sourceValue,
           fieldDetailsList,
           fieldPath,
+          positionContext,
         );
         if (result === undefined) {
           return results;
@@ -395,6 +447,7 @@ export class Executor {
     sourceValue: unknown,
     path: Path | undefined,
     groupedFieldSet: GroupedFieldSet,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ObjMap<unknown>> {
     const results = Object.create(null);
     let containsPromise = false;
@@ -407,6 +460,7 @@ export class Executor {
           sourceValue,
           fieldDetailsList,
           fieldPath,
+          positionContext,
         );
 
         if (result !== undefined) {
@@ -426,7 +480,7 @@ export class Executor {
       throw error;
     }
 
-    // If there are no promises, we can just return the object
+    // If there are no promises, we can just return the object and any incrementalDataRecords
     if (!containsPromise) {
       return results;
     }
@@ -448,14 +502,14 @@ export class Executor {
     source: unknown,
     fieldDetailsList: FieldDetailsList,
     path: Path,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<unknown> {
     const validatedExecutionArgs = this.validatedExecutionArgs;
     const { schema, contextValue, variableValues, hideSuggestions } =
       validatedExecutionArgs;
     const firstFieldDetails = fieldDetailsList[0];
-    const firstFieldNode = firstFieldDetails.node;
-    const fieldName = firstFieldNode.name.value;
-
+    const firstNode = firstFieldDetails.node;
+    const fieldName = firstNode.name.value;
     const fieldDef = schema.getField(parentType, fieldName);
     if (!fieldDef) {
       return;
@@ -480,7 +534,7 @@ export class Executor {
       // TODO: find a way to memoize, in case this field is within a List type.
       const args = getArgumentValues(
         fieldDef,
-        firstFieldNode,
+        firstNode,
         variableValues,
         firstFieldDetails.fragmentVariableValues,
         hideSuggestions,
@@ -498,6 +552,7 @@ export class Executor {
           info,
           path,
           result,
+          positionContext,
         );
       }
 
@@ -507,6 +562,7 @@ export class Executor {
         info,
         path,
         result,
+        positionContext,
       );
 
       if (isPromise(completed)) {
@@ -581,6 +637,7 @@ export class Executor {
     info: GraphQLResolveInfo,
     path: Path,
     result: unknown,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<unknown> {
     // If result is an Error, throw a located error.
     if (result instanceof Error) {
@@ -596,6 +653,7 @@ export class Executor {
         info,
         path,
         result,
+        positionContext,
       );
       if (completed === null) {
         throw new Error(
@@ -618,6 +676,7 @@ export class Executor {
         info,
         path,
         result,
+        positionContext,
       );
     }
 
@@ -636,6 +695,7 @@ export class Executor {
         info,
         path,
         result,
+        positionContext,
       );
     }
 
@@ -647,6 +707,7 @@ export class Executor {
         info,
         path,
         result,
+        positionContext,
       );
       // c8 control statement technically placed a line early secondary to
       // slight swc source mapping error (at least as compared to ts-node without swc)
@@ -665,6 +726,7 @@ export class Executor {
     info: GraphQLResolveInfo,
     path: Path,
     result: Promise<unknown>,
+    positionContext: TPositionContext | undefined,
   ): Promise<unknown> {
     try {
       const resolved = await result;
@@ -677,7 +739,9 @@ export class Executor {
         info,
         path,
         resolved,
+        positionContext,
       );
+
       if (isPromise(completed)) {
         completed = await completed;
       }
@@ -698,7 +762,14 @@ export class Executor {
     info: GraphQLResolveInfo,
     path: Path,
     items: AsyncIterable<unknown>,
+    positionContext: TPositionContext | undefined,
   ): Promise<ReadonlyArray<unknown>> {
+    // do not stream inner lists of multi-dimensional lists
+    const streamUsage =
+      typeof path.key === 'number'
+        ? undefined
+        : getStreamUsage(this.validatedExecutionArgs, fieldDetailsList);
+
     let containsPromise = false;
     const completedResults: Array<unknown> = [];
     const asyncIterator = items[Symbol.asyncIterator]();
@@ -706,6 +777,19 @@ export class Executor {
     let iteration;
     try {
       while (true) {
+        if (
+          streamUsage?.initialCount === index &&
+          this.handleStream(
+            index,
+            path,
+            { handle: asyncIterator, isAsync: true },
+            streamUsage,
+            info,
+            itemType,
+          )
+        ) {
+          break;
+        }
         const itemPath = addPath(path, index, undefined);
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -717,31 +801,19 @@ export class Executor {
             pathToArray(path),
           );
         }
-
         if (this.finished || iteration.done) {
           break;
         }
-
         const item = iteration.value;
-        if (isPromise(item)) {
-          completedResults.push(
-            this.completePromisedListItemValue(
-              item,
-              itemType,
-              fieldDetailsList,
-              info,
-              itemPath,
-            ),
-          );
-          containsPromise = true;
-        } else if (
-          this.completeListItemValue(
+        if (
+          this.completeMaybePromisedListItemValue(
             item,
             completedResults,
             itemType,
             fieldDetailsList,
             info,
             itemPath,
+            positionContext,
           )
         ) {
           containsPromise = true;
@@ -764,6 +836,20 @@ export class Executor {
     return containsPromise ? Promise.all(completedResults) : completedResults;
   }
 
+  /* c8 ignore next 12 */
+  handleStream(
+    _index: number,
+    _path: Path,
+    _iterator:
+      | { handle: Iterator<unknown>; isAsync?: never }
+      | { handle: AsyncIterator<unknown>; isAsync: true },
+    _streamUsage: StreamUsage,
+    _info: GraphQLResolveInfo,
+    _itemType: GraphQLOutputType,
+  ): boolean {
+    return false;
+  }
+
   /**
    * Complete a list value by completing each item in the list with the
    * inner type
@@ -774,6 +860,7 @@ export class Executor {
     info: GraphQLResolveInfo,
     path: Path,
     result: unknown,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ReadonlyArray<unknown>> {
     const itemType = returnType.ofType;
 
@@ -784,6 +871,7 @@ export class Executor {
         info,
         path,
         result,
+        positionContext,
       );
     }
 
@@ -799,6 +887,7 @@ export class Executor {
       info,
       path,
       result,
+      positionContext,
     );
   }
 
@@ -808,13 +897,35 @@ export class Executor {
     info: GraphQLResolveInfo,
     path: Path,
     items: Iterable<unknown>,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ReadonlyArray<unknown>> {
+    // do not stream inner lists of multi-dimensional lists
+    const streamUsage =
+      typeof path.key === 'number'
+        ? undefined
+        : getStreamUsage(this.validatedExecutionArgs, fieldDetailsList);
+
+    // This is specified as a simple map, however we're optimizing the path
+    // where the list contains no Promises by avoiding creating another Promise.
     let containsPromise = false;
     const completedResults: Array<unknown> = [];
     let index = 0;
     const iterator = items[Symbol.iterator]();
     try {
       while (true) {
+        if (
+          streamUsage?.initialCount === index &&
+          this.handleStream(
+            index,
+            path,
+            { handle: iterator },
+            streamUsage,
+            info,
+            itemType,
+          )
+        ) {
+          break;
+        }
         const iteration = iterator.next();
         if (iteration.done) {
           break;
@@ -826,25 +937,15 @@ export class Executor {
         // since from here on it is not ever accessed by resolver functions.
         const itemPath = addPath(path, index, undefined);
 
-        if (isPromise(item)) {
-          completedResults.push(
-            this.completePromisedListItemValue(
-              item,
-              itemType,
-              fieldDetailsList,
-              info,
-              itemPath,
-            ),
-          );
-          containsPromise = true;
-        } else if (
-          this.completeListItemValue(
+        if (
+          this.completeMaybePromisedListItemValue(
             item,
             completedResults,
             itemType,
             fieldDetailsList,
             info,
             itemPath,
+            positionContext,
           )
         ) {
           containsPromise = true;
@@ -860,6 +961,43 @@ export class Executor {
     return containsPromise ? Promise.all(completedResults) : completedResults;
   }
 
+  completeMaybePromisedListItemValue(
+    item: unknown,
+    completedResults: Array<unknown>,
+    itemType: GraphQLOutputType,
+    fieldDetailsList: FieldDetailsList,
+    info: GraphQLResolveInfo,
+    itemPath: Path,
+    positionContext: TPositionContext | undefined,
+  ): boolean {
+    if (isPromise(item)) {
+      completedResults.push(
+        this.completePromisedListItemValue(
+          item,
+          itemType,
+          fieldDetailsList,
+          info,
+          itemPath,
+          positionContext,
+        ),
+      );
+      return true;
+    } else if (
+      this.completeListItemValue(
+        item,
+        completedResults,
+        itemType,
+        fieldDetailsList,
+        info,
+        itemPath,
+        positionContext,
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Complete a list item value by adding it to the completed results.
    *
@@ -872,6 +1010,7 @@ export class Executor {
     fieldDetailsList: FieldDetailsList,
     info: GraphQLResolveInfo,
     itemPath: Path,
+    positionContext: TPositionContext | undefined,
   ): boolean {
     try {
       const completedItem = this.completeValue(
@@ -880,6 +1019,7 @@ export class Executor {
         info,
         itemPath,
         item,
+        positionContext,
       );
 
       if (isPromise(completedItem)) {
@@ -913,6 +1053,7 @@ export class Executor {
     fieldDetailsList: FieldDetailsList,
     info: GraphQLResolveInfo,
     itemPath: Path,
+    positionContext: TPositionContext | undefined,
   ): Promise<unknown> {
     try {
       const resolved = await item;
@@ -925,6 +1066,7 @@ export class Executor {
         info,
         itemPath,
         resolved,
+        positionContext,
       );
       if (isPromise(completed)) {
         completed = await completed;
@@ -944,9 +1086,8 @@ export class Executor {
     const coerced = returnType.coerceOutputValue(result);
     if (coerced == null) {
       throw new Error(
-        `Expected \`${inspect(returnType)}.coerceOutputValue(${inspect(
-          result,
-        )})\` to return non-nullable value, returned: ${inspect(coerced)}`,
+        `Expected \`${inspect(returnType)}.coerceOutputValue(${inspect(result)})\` to ` +
+          `return non-nullable value, returned: ${inspect(coerced)}`,
       );
     }
     return coerced;
@@ -962,6 +1103,7 @@ export class Executor {
     info: GraphQLResolveInfo,
     path: Path,
     result: unknown,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ObjMap<unknown>> {
     const validatedExecutionArgs = this.validatedExecutionArgs;
     const { schema, contextValue } = validatedExecutionArgs;
@@ -987,6 +1129,7 @@ export class Executor {
           info,
           path,
           result,
+          positionContext,
         );
       });
     }
@@ -1004,6 +1147,7 @@ export class Executor {
       info,
       path,
       result,
+      positionContext,
     );
   }
 
@@ -1065,6 +1209,7 @@ export class Executor {
     info: GraphQLResolveInfo,
     path: Path,
     result: unknown,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ObjMap<unknown>> {
     // If there is an isTypeOf predicate function, call it with the
     // current result. If isTypeOf returns false, then raise an error rather
@@ -1093,6 +1238,7 @@ export class Executor {
             fieldDetailsList,
             path,
             result,
+            positionContext,
           );
         });
       }
@@ -1107,6 +1253,7 @@ export class Executor {
       fieldDetailsList,
       path,
       result,
+      positionContext,
     );
   }
 
@@ -1126,33 +1273,43 @@ export class Executor {
     fieldDetailsList: FieldDetailsList,
     path: Path,
     result: unknown,
+    positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ObjMap<unknown>> {
     // Collect sub-fields to execute to complete this value.
-    const groupedFieldSet = collectSubfields(
+    const { groupedFieldSet, newDeferUsages } = collectSubfields(
       this.validatedExecutionArgs,
       returnType,
       fieldDetailsList,
     );
 
-    return this.executeFields(returnType, result, path, groupedFieldSet);
+    return this.executeCollectedSubfields(
+      returnType,
+      result,
+      path,
+      groupedFieldSet,
+      newDeferUsages,
+      positionContext,
+    );
+  }
+
+  executeCollectedSubfields(
+    parentType: GraphQLObjectType,
+    sourceValue: unknown,
+    path: Path | undefined,
+    originalGroupedFieldSet: GroupedFieldSet,
+    _newDeferUsages: ReadonlyArray<DeferUsage>,
+    _positionContext: TPositionContext | undefined,
+  ): PromiseOrValue<ObjMap<unknown>> {
+    return this.executeFields(
+      parentType,
+      sourceValue,
+      path,
+      originalGroupedFieldSet,
+      undefined,
+    );
   }
 }
 
 function toNodes(fieldDetailsList: FieldDetailsList): ReadonlyArray<FieldNode> {
   return fieldDetailsList.map((fieldDetails) => fieldDetails.node);
-}
-
-function returnIteratorCatchingErrors(
-  iterator: Iterator<unknown> | AsyncIterator<unknown>,
-): void {
-  try {
-    const result = iterator.return?.();
-    if (isPromise(result)) {
-      result.catch(() => {
-        // ignore errors
-      });
-    }
-  } catch {
-    // ignore errors
-  }
 }

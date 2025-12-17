@@ -5,6 +5,7 @@ import { GraphQLError } from '../../error/GraphQLError.js';
 
 import type {
   ArgumentNode,
+  DirectiveNode,
   FieldNode,
   FragmentArgumentNode,
   FragmentDefinitionNode,
@@ -204,7 +205,7 @@ function findConflictsWithinSelectionSet(
     undefined,
   );
 
-  // (A) Find find all conflicts "within" the fields of this selection set.
+  // (A) Find find all conflicts "within" the fields and f of this selection set.
   // Note: this is the *only place* `collectConflictsWithin` is called.
   collectConflictsWithin(
     context,
@@ -265,14 +266,12 @@ function collectConflictsBetweenFieldsAndFragment(
   fieldMap: NodeAndDefCollection,
   fragmentSpread: FragmentSpread,
 ): void {
-  const fragmentKey = fragmentSpread.key;
-
   // Memoize so the fields and fragments are not compared for conflicts more
   // than once.
   if (
     comparedFieldsAndFragmentPairs.has(
       fieldMap,
-      fragmentKey,
+      fragmentSpread.key,
       areMutuallyExclusive,
     )
   ) {
@@ -280,7 +279,7 @@ function collectConflictsBetweenFieldsAndFragment(
   }
   comparedFieldsAndFragmentPairs.add(
     fieldMap,
-    fragmentKey,
+    fragmentSpread.key,
     areMutuallyExclusive,
   );
 
@@ -318,7 +317,7 @@ function collectConflictsBetweenFieldsAndFragment(
   );
 
   // (E) Then collect any conflicts between the provided collection of fields
-  // and any fragment spreads found in the given fragment.
+  // and any fragment names found in the given fragment.
   for (const referencedFragmentSpread of referencedFragmentSpreads) {
     collectConflictsBetweenFieldsAndFragment(
       context,
@@ -506,7 +505,7 @@ function findConflictsBetweenSubSelectionSets(
   );
 
   // (I) Then collect conflicts between the first collection of fields and
-  // those referenced by each fragment spread associated with the second.
+  // those referenced by each fragment name associated with the second.
   for (const fragmentSpread2 of fragmentSpreads2) {
     collectConflictsBetweenFieldsAndFragment(
       context,
@@ -521,7 +520,7 @@ function findConflictsBetweenSubSelectionSets(
   }
 
   // (I) Then collect conflicts between the second collection of fields and
-  // those referenced by each fragment spread associated with the first.
+  // those referenced by each fragment name associated with the first.
   for (const fragmentSpread1 of fragmentSpreads1) {
     collectConflictsBetweenFieldsAndFragment(
       context,
@@ -706,6 +705,18 @@ function findConflict(
     }
   }
 
+  const directives1 = node1.directives;
+  const directives2 = node2.directives;
+  const overlappingStreamReason = hasNoOverlappingStreams(
+    directives1,
+    varMap1,
+    directives2,
+    varMap2,
+  );
+  if (overlappingStreamReason !== undefined) {
+    return [[responseName, overlappingStreamReason], [node1], [node2]];
+  }
+
   // The return type for each field.
   const type1 = def1?.type;
   const type2 = def2?.type;
@@ -813,6 +824,35 @@ function replaceFragmentVariables(
 
 function stringifyValue(value: ValueNode): string | null {
   return print(sortValueNode(value));
+}
+
+function getStreamDirective(
+  directives: ReadonlyArray<DirectiveNode> | undefined,
+): DirectiveNode | undefined {
+  return directives?.find((directive) => directive.name.value === 'stream');
+}
+
+function hasNoOverlappingStreams(
+  directives1: ReadonlyArray<DirectiveNode> | undefined,
+  varMap1: Map<string, ValueNode> | undefined,
+  directives2: ReadonlyArray<DirectiveNode> | undefined,
+  varMap2: Map<string, ValueNode> | undefined,
+): string | undefined {
+  const stream1 = getStreamDirective(directives1);
+  const stream2 = getStreamDirective(directives2);
+  if (!stream1 && !stream2) {
+    // both fields do not have streams
+    return;
+  } else if (stream1 && stream2) {
+    // check if both fields have equivalent streams
+    if (sameArguments(stream1.arguments, varMap1, stream2.arguments, varMap2)) {
+      // This was allowed in previous alpha versions of `graphql-js`.
+      return 'they have overlapping stream directives. See https://github.com/graphql/defer-stream-wg/discussions/100';
+    }
+    return 'they have overlapping stream directives';
+  }
+  // fields have a mix of stream and no stream
+  return 'they have overlapping stream directives';
 }
 
 // Two types conflict if both types could not apply to a value simultaneously.
@@ -963,31 +1003,31 @@ function getFragmentSpread(
   fragmentSpreadNode: FragmentSpreadNode,
   varMap: Map<string, ValueNode> | undefined,
 ): FragmentSpread {
-  let key = fragmentSpreadNode.name.value;
+  let key = '';
   const newVarMap = new Map<string, ValueNode>();
   const fragmentSignature = context.getFragmentSignatureByName()(
     fragmentSpreadNode.name.value,
   );
-  if (fragmentSignature?.variableDefinitions !== undefined) {
-    const argMap = new Map<string, ValueNode>();
-    if (fragmentSpreadNode.arguments) {
-      for (const arg of fragmentSpreadNode.arguments) {
-        argMap.set(arg.name.value, arg.value);
-      }
+  const argMap = new Map<string, ValueNode>();
+  if (fragmentSpreadNode.arguments) {
+    for (const arg of fragmentSpreadNode.arguments) {
+      argMap.set(arg.name.value, arg.value);
     }
-    key += '(';
+  }
+  if (fragmentSignature?.variableDefinitions) {
+    key += fragmentSpreadNode.name.value + '(';
     for (const [varName, variable] of fragmentSignature.variableDefinitions) {
       const value = argMap.get(varName);
       if (value) {
         key += varName + ': ' + print(sortValueNode(value));
       }
       const arg = argMap.get(varName);
-      if (arg) {
+      if (arg !== undefined) {
         newVarMap.set(
           varName,
-          varMap ? replaceFragmentVariables(arg, varMap) : arg,
+          varMap !== undefined ? replaceFragmentVariables(arg, varMap) : arg,
         );
-      } else if (variable.defaultValue !== undefined) {
+      } else if (variable.defaultValue) {
         newVarMap.set(varName, variable.defaultValue);
       }
     }
