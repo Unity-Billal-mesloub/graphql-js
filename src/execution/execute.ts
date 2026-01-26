@@ -1323,7 +1323,9 @@ function executeSubscription(
     FieldDetailsList,
   ];
   const [responseName, fieldDetailsList] = firstRootField;
-  const fieldName = fieldDetailsList[0].node.name.value;
+  const firstFieldDetails = fieldDetailsList[0];
+  const firstFieldNode = firstFieldDetails.node;
+  const fieldName = firstFieldNode.name.value;
   const fieldDef = schema.getField(rootType, fieldName);
 
   const fieldNodes = fieldDetailsList.map((fieldDetails) => fieldDetails.node);
@@ -1352,9 +1354,9 @@ function executeSubscription(
     // variables scope to fulfill any variable references.
     const args = getArgumentValues(
       fieldDef,
-      fieldNodes[0],
+      firstFieldNode,
       variableValues,
-      fieldDetailsList[0].fragmentVariableValues,
+      firstFieldDetails.fragmentVariableValues,
       hideSuggestions,
     );
 
