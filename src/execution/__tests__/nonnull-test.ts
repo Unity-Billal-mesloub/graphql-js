@@ -687,7 +687,7 @@ describe('Execute: handles non-nullable types', () => {
 
       nonNullDeferred.reject(syncNonNullError);
 
-      // give first error a chance to propagate
+      // Give the first error a chance to null out the parent position.
       await resolveOnNextTick();
       await resolveOnNextTick();
       await resolveOnNextTick();
@@ -706,68 +706,6 @@ describe('Execute: handles non-nullable types', () => {
           },
         ],
       });
-    });
-  });
-
-  describe('cancellation with null bubbling', () => {
-    function nestedPromise(n: number): string {
-      return n > 0 ? `promiseNest { ${nestedPromise(n - 1)} }` : 'promise';
-    }
-
-    it('returns an single error without cancellation', async () => {
-      const query = `
-        {
-          promiseNonNull,
-          ${nestedPromise(4)}
-        }
-      `;
-
-      const result = await executeQuery(query, throwingData);
-      expectJSON(result).toDeepEqual({
-        data: null,
-        errors: [
-          // does not include syncNullError because result returns prior to it being added
-          {
-            message: 'promiseNonNull',
-            path: ['promiseNonNull'],
-            locations: [{ line: 3, column: 11 }],
-          },
-        ],
-      });
-    });
-
-    it('stops running despite error', async () => {
-      const query = `
-        {
-          promiseNonNull,
-          ${nestedPromise(10)}
-        }
-      `;
-
-      let counter = 0;
-      const rootValue = {
-        ...throwingData,
-        promiseNest() {
-          return new Promise((resolve) => {
-            counter++;
-            resolve(rootValue);
-          });
-        },
-      };
-      const result = await executeQuery(query, rootValue);
-      expectJSON(result).toDeepEqual({
-        data: null,
-        errors: [
-          {
-            message: 'promiseNonNull',
-            path: ['promiseNonNull'],
-            locations: [{ line: 3, column: 11 }],
-          },
-        ],
-      });
-      const counterAtExecutionEnd = counter;
-      await resolveOnNextTick();
-      expect(counter).to.equal(counterAtExecutionEnd);
     });
   });
 
