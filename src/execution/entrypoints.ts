@@ -22,12 +22,12 @@ import { assertValidSchema } from '../type/index.js';
 import type { GraphQLSchema } from '../type/schema.js';
 
 import type { FragmentDetails } from './collectFields.js';
-import type { ExecutionResult, ValidatedExecutionArgs } from './execute.js';
+import type { ExecutionResult, ValidatedExecutionArgs } from './Executor.js';
 import {
   createSourceEventStreamImpl,
   executeQueryOrMutationOrSubscriptionEvent,
   mapSourceToResponse,
-} from './execute.js';
+} from './Executor.js';
 import { getVariableSignature } from './getVariableSignature.js';
 import { getVariableValues } from './values.js';
 

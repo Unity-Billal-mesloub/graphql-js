@@ -1,6 +1,6 @@
 export { pathToArray as responsePathAsArray } from '../jsutils/Path.js';
 
-export { executeQueryOrMutationOrSubscriptionEvent } from './execute.js';
+export { executeQueryOrMutationOrSubscriptionEvent } from './Executor.js';
 
 export {
   createSourceEventStream,
@@ -17,7 +17,7 @@ export type {
   ValidatedExecutionArgs,
   ExecutionResult,
   FormattedExecutionResult,
-} from './execute.js';
+} from './Executor.js';
 
 export {
   getArgumentValues,
