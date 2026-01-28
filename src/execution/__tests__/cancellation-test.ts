@@ -20,7 +20,7 @@ import { GraphQLSchema } from '../../type/schema.js';
 
 import { buildSchema } from '../../utilities/buildASTSchema.js';
 
-import { execute, subscribe } from '../entrypoints.js';
+import { execute, subscribe } from '../execute.js';
 
 const schema = buildSchema(`
   type Todo {
