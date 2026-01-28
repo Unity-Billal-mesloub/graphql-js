@@ -30,7 +30,7 @@ import { cancellablePromise } from './cancellablePromise.js';
 import type { FieldDetailsList, FragmentDetails } from './collectFields.js';
 import { collectFields } from './collectFields.js';
 import type { ExecutionResult, ValidatedExecutionArgs } from './Executor.js';
-import { executeQueryOrMutationOrSubscriptionEvent } from './Executor.js';
+import { Executor } from './Executor.js';
 import { getVariableSignature } from './getVariableSignature.js';
 import { mapAsyncIterable } from './mapAsyncIterable.js';
 import { ResolveInfo } from './ResolveInfo.js';
@@ -73,6 +73,14 @@ export function executeSync(args: ExecutionArgs): ExecutionResult {
   }
 
   return result;
+}
+
+export function executeQueryOrMutationOrSubscriptionEvent(
+  validatedExecutionArgs: ValidatedExecutionArgs,
+): PromiseOrValue<ExecutionResult> {
+  return new Executor(
+    validatedExecutionArgs,
+  ).executeQueryOrMutationOrSubscriptionEvent();
 }
 
 export function executeSubscriptionEvent(
