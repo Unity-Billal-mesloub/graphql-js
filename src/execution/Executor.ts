@@ -198,32 +198,35 @@ export interface FormattedExecutionResult<
 /** @internal */
 export class Executor {
   validatedExecutionArgs: ValidatedExecutionArgs;
-  onExternalAbort: (() => void) | undefined;
   finished: boolean;
-  abortControllers: Set<AbortController>;
+  resolverAbortControllers: Set<AbortController>;
   collectedErrors: CollectedErrors;
 
   constructor(validatedExecutionArgs: ValidatedExecutionArgs) {
     this.validatedExecutionArgs = validatedExecutionArgs;
-    this.onExternalAbort = undefined;
     this.finished = false;
-    this.abortControllers = new Set();
+    this.resolverAbortControllers = new Set();
     this.collectedErrors = new CollectedErrors();
   }
 
   executeQueryOrMutationOrSubscriptionEvent(): PromiseOrValue<ExecutionResult> {
     const validatedExecutionArgs = this.validatedExecutionArgs;
     const externalAbortSignal = validatedExecutionArgs.externalAbortSignal;
+    let removeAbortListener: (() => void) | undefined;
     if (externalAbortSignal) {
       if (externalAbortSignal.aborted) {
         throw new Error(externalAbortSignal.reason);
       }
-      const onExternalAbort = () => {
-        this.cancel(externalAbortSignal.reason);
-      };
+      const onExternalAbort = () => this.cancel(externalAbortSignal.reason);
+      removeAbortListener = () =>
+        externalAbortSignal.removeEventListener('abort', onExternalAbort);
       externalAbortSignal.addEventListener('abort', onExternalAbort);
-      this.onExternalAbort = onExternalAbort;
     }
+
+    const onFinish = () => {
+      removeAbortListener?.();
+      this.finish();
+    };
 
     try {
       const {
@@ -264,11 +267,11 @@ export class Executor {
       if (isPromise(result)) {
         const promise = result.then(
           (data) => {
-            this.finish();
+            onFinish();
             return this.buildResponse(data);
           },
           (error: unknown) => {
-            this.finish();
+            onFinish();
             this.collectedErrors.add(error as GraphQLError, undefined);
             return this.buildResponse(null);
           },
@@ -277,9 +280,11 @@ export class Executor {
           ? cancellablePromise(promise, externalAbortSignal)
           : promise;
       }
+      onFinish();
       return this.buildResponse(result);
     } catch (error) {
       this.collectedErrors.add(error as GraphQLError, undefined);
+      onFinish();
       return this.buildResponse(null);
     }
   }
@@ -291,24 +296,20 @@ export class Executor {
   }
 
   finish(reason?: unknown): void {
-    if (this.finished) {
-      return;
-    }
-    this.finished = true;
-    const { abortControllers, onExternalAbort } = this;
-    const finishReason =
-      reason ?? new Error('Execution has already completed.');
-    for (const abortController of abortControllers) {
-      abortController.abort(finishReason);
-    }
-    if (onExternalAbort) {
-      this.validatedExecutionArgs.externalAbortSignal?.removeEventListener(
-        'abort',
-        onExternalAbort,
-      );
+    if (!this.finished) {
+      this.finished = true;
+      this.triggerResolverAbortSignals(reason);
     }
   }
 
+  triggerResolverAbortSignals(reason?: unknown): void {
+    const { resolverAbortControllers } = this;
+    const finishReason =
+      reason ?? new Error('Execution has already completed.');
+    for (const abortController of resolverAbortControllers) {
+      abortController.abort(finishReason);
+    }
+  }
   /**
    * Given a completed execution context and data, build the `{ errors, data }`
    * response defined by the "Response" section of the GraphQL specification.
@@ -480,11 +481,11 @@ export class Executor {
           throw new Error('Execution has already completed.');
         }
         const abortController = new AbortController();
-        this.abortControllers.add(abortController);
+        this.resolverAbortControllers.add(abortController);
         return {
           abortSignal: abortController.signal,
           unregister: () => {
-            this.abortControllers.delete(abortController);
+            this.resolverAbortControllers.delete(abortController);
           },
         };
       },
