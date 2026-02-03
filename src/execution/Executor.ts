@@ -64,7 +64,7 @@ import { getArgumentValues } from './values.js';
  * type. Memoizing ensures the subfields are not repeatedly calculated, which
  * saves overhead when resolving lists of values.
  */
-const collectSubfields = memoize3(
+export const collectSubfields = memoize3(
   (
     validatedExecutionArgs: ValidatedExecutionArgs,
     returnType: GraphQLObjectType,
