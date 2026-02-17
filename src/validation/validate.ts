@@ -19,6 +19,11 @@ import {
   ValidationContext,
 } from './ValidationContext.js';
 
+export interface ValidationOptions {
+  maxErrors?: number;
+  hideSuggestions?: Maybe<boolean>;
+}
+
 // Per the specification, descriptions must not affect validation.
 // See https://spec.graphql.org/draft/#sec-Descriptions
 const QueryDocumentKeysToValidate = mapValue(
@@ -50,7 +55,7 @@ export function validate(
   schema: GraphQLSchema,
   documentAST: DocumentNode,
   rules: ReadonlyArray<ValidationRule> = specifiedRules,
-  options?: { maxErrors?: number; hideSuggestions?: Maybe<boolean> },
+  options?: ValidationOptions,
 ): ReadonlyArray<GraphQLError> {
   const maxErrors = options?.maxErrors ?? 100;
   const hideSuggestions = options?.hideSuggestions ?? false;
