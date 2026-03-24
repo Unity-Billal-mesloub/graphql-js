@@ -8,15 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION_USED_FOR_DEVELOPMENT }}
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Check if commit contains files that should be ignored
         run: |
@@ -60,10 +60,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION_USED_FOR_DEVELOPMENT }}
 
@@ -86,15 +86,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION_USED_FOR_DEVELOPMENT }}
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -112,15 +112,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION_USED_FOR_DEVELOPMENT }}
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -148,15 +148,15 @@ jobs:
         node_version_to_setup: [10, 12, 14, 15]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js v${{ matrix.node_version_to_setup }}
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node_version_to_setup }}
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -174,17 +174,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
         with:
           fetch-depth: 2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION_USED_FOR_DEVELOPMENT }}
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -207,15 +207,15 @@ jobs:
     needs: [test, fuzz, lint, checkForCommonlyIgnoredFiles, integrationTests]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION_USED_FOR_DEVELOPMENT }}
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -243,15 +243,15 @@ jobs:
     needs: [test, fuzz, lint, checkForCommonlyIgnoredFiles, integrationTests]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION_USED_FOR_DEVELOPMENT }}
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
