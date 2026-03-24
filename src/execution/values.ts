@@ -75,7 +75,7 @@ function coerceVariableValues(
   inputs: { readonly [variable: string]: unknown },
   onError: (error: GraphQLError) => void,
 ): { [variable: string]: unknown } {
-  const coercedValues: { [variable: string]: unknown } = {};
+  const coercedValues: { [variable: string]: unknown } = Object.create(null);
   for (const varDefNode of varDefNodes) {
     const varName = varDefNode.variable.name.value;
     const varType = typeFromAST(schema, varDefNode.type);
@@ -138,7 +138,7 @@ function coerceVariableValues(
     );
   }
 
-  return coercedValues;
+  return { ...coercedValues };
 }
 
 /**
@@ -154,7 +154,7 @@ export function getArgumentValues(
   node: FieldNode | DirectiveNode,
   variableValues?: Maybe<ObjMap<unknown>>,
 ): { [argument: string]: unknown } {
-  const coercedValues: { [argument: string]: unknown } = {};
+  const coercedValues: { [argument: string]: unknown } = Object.create(null);
 
   // FIXME: https://github.com/graphql/graphql-js/issues/2203
   /* c8 ignore next */
@@ -222,7 +222,7 @@ export function getArgumentValues(
     }
     coercedValues[name] = coercedValue;
   }
-  return coercedValues;
+  return { ...coercedValues };
 }
 
 /**

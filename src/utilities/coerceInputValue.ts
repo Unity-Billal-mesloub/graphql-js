@@ -95,7 +95,7 @@ function coerceInputValueImpl(
       return;
     }
 
-    const coercedValue: any = {};
+    const coercedValue: any = Object.create(null);
     const fieldDefs = type.getFields();
 
     for (const field of Object.values(fieldDefs)) {
@@ -166,7 +166,7 @@ function coerceInputValueImpl(
       }
     }
 
-    return coercedValue;
+    return { ...coercedValue };
   }
 
   if (isLeafType(type)) {

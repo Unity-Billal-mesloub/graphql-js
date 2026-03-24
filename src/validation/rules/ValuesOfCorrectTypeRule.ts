@@ -10,7 +10,6 @@ import type {
   ObjectFieldNode,
   ObjectValueNode,
   ValueNode,
-  VariableDefinitionNode,
 } from '../../language/ast';
 import { Kind } from '../../language/kinds';
 import { print } from '../../language/printer';
@@ -40,17 +39,7 @@ import type { ValidationContext } from '../ValidationContext';
 export function ValuesOfCorrectTypeRule(
   context: ValidationContext,
 ): ASTVisitor {
-  let variableDefinitions: { [key: string]: VariableDefinitionNode } = {};
-
   return {
-    OperationDefinition: {
-      enter() {
-        variableDefinitions = {};
-      },
-    },
-    VariableDefinition(definition) {
-      variableDefinitions[definition.variable.name.value] = definition;
-    },
     ListValue(node) {
       // Note: TypeInfo will traverse into a list's item type, so look to the
       // parent input type to check if it is a list.
