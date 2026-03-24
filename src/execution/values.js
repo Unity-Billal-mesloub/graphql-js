@@ -78,7 +78,7 @@ function coerceVariableValues(
   inputs: { +[variable: string]: mixed, ... },
   onError: (GraphQLError) => void,
 ): { [variable: string]: mixed, ... } {
-  const coercedValues = {};
+  const coercedValues = Object.create(null);
   for (const varDefNode of varDefNodes) {
     const varName = varDefNode.variable.name.value;
     const varType = typeFromAST(schema, varDefNode.type);
@@ -145,7 +145,7 @@ function coerceVariableValues(
     );
   }
 
-  return coercedValues;
+  return { ...coercedValues };
 }
 
 /**
@@ -163,7 +163,7 @@ export function getArgumentValues(
   node: FieldNode | DirectiveNode,
   variableValues?: ?ObjMap<mixed>,
 ): { [argument: string]: mixed, ... } {
-  const coercedValues = {};
+  const coercedValues = Object.create(null);
 
   // istanbul ignore next (See: 'https://github.com/graphql/graphql-js/issues/2203')
   const argumentNodes = node.arguments ?? [];
@@ -230,7 +230,7 @@ export function getArgumentValues(
     }
     coercedValues[name] = coercedValue;
   }
-  return coercedValues;
+  return { ...coercedValues };
 }
 
 /**
