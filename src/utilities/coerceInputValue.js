@@ -101,7 +101,7 @@ function coerceInputValueImpl(
       return;
     }
 
-    const coercedValue = {};
+    const coercedValue = Object.create(null);
     const fieldDefs = type.getFields();
 
     for (const field of objectValues(fieldDefs)) {
@@ -148,7 +148,7 @@ function coerceInputValueImpl(
         );
       }
     }
-    return coercedValue;
+    return { ...coercedValue };
   }
 
   // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
