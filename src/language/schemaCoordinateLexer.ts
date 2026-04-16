@@ -2,7 +2,7 @@ import { syntaxError } from '../error/syntaxError';
 
 import { Token } from './ast';
 import { isNameStart } from './characterClasses';
-import type { LexerInterface } from './lexer';
+import type { LexerInterface, LexerOptions } from './lexer';
 import { createToken, printCodePointAt, readName } from './lexer';
 import type { Source } from './source';
 import { TokenKind } from './tokenKind';
@@ -16,6 +16,11 @@ import { TokenKind } from './tokenKind';
  * whenever called.
  */
 export class SchemaCoordinateLexer implements LexerInterface {
+  /** @internal */
+  public readonly _options: Readonly<LexerOptions>;
+  /** @internal */
+  public _tokenCounter: number;
+
   source: Source;
 
   /**
@@ -40,9 +45,11 @@ export class SchemaCoordinateLexer implements LexerInterface {
    */
   lineStart: 0 = 0 as const;
 
-  constructor(source: Source) {
+  constructor(source: Source, options: LexerOptions = {}) {
     const startOfFileToken = new Token(TokenKind.SOF, 0, 0, 0, 0);
 
+    this._options = options;
+    this._tokenCounter = 0;
     this.source = source;
     this.lastToken = startOfFileToken;
     this.token = startOfFileToken;
@@ -50,6 +57,10 @@ export class SchemaCoordinateLexer implements LexerInterface {
 
   get [Symbol.toStringTag]() {
     return 'SchemaCoordinateLexer';
+  }
+
+  get tokenCount(): number {
+    return this._tokenCounter;
   }
 
   /**
