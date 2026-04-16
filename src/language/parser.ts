@@ -247,7 +247,7 @@ export class Parser {
     if (lexer) {
       if (options.maxTokens != null) {
         throw new Error(
-          'Setting maxTokens has no effect when a custom lexer is passed',
+          'Setting maxTokens has no effect when a custom lexer is supplied',
         );
       }
       this._lexer = lexer;
