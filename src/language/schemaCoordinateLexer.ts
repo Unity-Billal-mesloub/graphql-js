@@ -14,6 +14,8 @@ import { TokenKind } from './tokenKind';
  * source lexes, the final Token emitted by the lexer will be of kind
  * EOF, after which the lexer will repeatedly return the same EOF token
  * whenever called.
+ *
+ * @internal
  */
 export class SchemaCoordinateLexer implements LexerInterface {
   /** @internal */
