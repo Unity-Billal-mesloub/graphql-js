@@ -205,8 +205,8 @@ export function getArgumentValues(
   variableValues?: Maybe<VariableValues>,
   fragmentVariableValues?: Maybe<FragmentVariableValues>,
   hideSuggestions?: Maybe<boolean>,
-): { [argument: string]: unknown } {
-  const coercedValues: { [argument: string]: unknown } = {};
+): ObjMap<unknown> {
+  const coercedValues: ObjMap<unknown> = Object.create(null);
 
   const argumentNodes = node.arguments ?? [];
   const argNodeMap = new Map(argumentNodes.map((arg) => [arg.name.value, arg]));
