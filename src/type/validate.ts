@@ -156,6 +156,15 @@ function validateRootTypes(context: SchemaValidationContext): void {
           getOperationTypeNode(schema, operationType) ??
             (rootType as any).astNode,
         );
+      } else if (
+        operationType !== 'query' &&
+        rootType.getInterfaces().length > 0
+      ) {
+        const rootTypeStr = inspect(rootType);
+        context.reportError(
+          `Root type "${rootTypeStr}" cannot implement interfaces.`,
+          rootType.astNode,
+        );
       } else {
         rootTypesMap.add(rootType, operationType);
       }

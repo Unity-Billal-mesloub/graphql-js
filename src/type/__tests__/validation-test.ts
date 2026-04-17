@@ -195,6 +195,34 @@ describe('Type System: A Schema must have Object root types', () => {
     expectJSON(validateSchema(schemaWithDef)).toDeepEqual([]);
   });
 
+  it('accepts a Schema whose query type implements interfaces', () => {
+    const schema = buildSchema(`
+      interface SomeInterface {
+        test: String
+      }
+
+      type Query implements SomeInterface {
+        test: String
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+
+    const schemaWithDef = buildSchema(`
+      schema {
+        query: QueryRoot
+      }
+
+      interface SomeInterface {
+        test: String
+      }
+
+      type QueryRoot implements SomeInterface {
+        test: String
+      }
+    `);
+    expectJSON(validateSchema(schemaWithDef)).toDeepEqual([]);
+  });
+
   it('rejects a Schema without a query type', () => {
     const schema = buildSchema(`
       type Mutation {
@@ -296,6 +324,53 @@ describe('Type System: A Schema must have Object root types', () => {
     ]);
   });
 
+  it('rejects a Schema whose mutation type implements interfaces', () => {
+    const schema = buildSchema(`
+      type Query {
+        field: String
+      }
+
+      interface SomeInterface {
+        test: String
+      }
+
+      type Mutation implements SomeInterface {
+        test: String
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message: 'Root type "Mutation" cannot implement interfaces.',
+        locations: [{ line: 10, column: 7 }],
+      },
+    ]);
+
+    const schemaWithDef = buildSchema(`
+      schema {
+        query: Query
+        mutation: MutationRoot
+      }
+
+      type Query {
+        field: String
+      }
+
+      interface SomeInterface {
+        test: String
+      }
+
+      type MutationRoot implements SomeInterface {
+        test: String
+      }
+    `);
+    expectJSON(validateSchema(schemaWithDef)).toDeepEqual([
+      {
+        message: 'Root type "MutationRoot" cannot implement interfaces.',
+        locations: [{ line: 15, column: 7 }],
+      },
+    ]);
+  });
+
   it('rejects a Schema whose subscription type is an input type', () => {
     const schema = buildSchema(`
       type Query {
@@ -333,6 +408,54 @@ describe('Type System: A Schema must have Object root types', () => {
         message:
           'Subscription root type must be Object type if provided, it cannot be SomeInputObject.',
         locations: [{ line: 4, column: 23 }],
+      },
+    ]);
+  });
+
+  it('rejects a Schema whose subscription type implements interfaces', () => {
+    const schema = buildSchema(`
+      type Query {
+        field: String
+      }
+
+      interface SomeInterface {
+        test: String
+      }
+
+      type Subscription implements SomeInterface {
+        test: String
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message: 'Root type "Subscription" cannot implement interfaces.',
+        locations: [{ line: 10, column: 7 }],
+      },
+    ]);
+
+    const schemaWithDef = buildSchema(`
+      schema {
+        query: Query
+        subscription: SubscriptionRoot
+      }
+
+      type Query {
+        field: String
+      }
+
+      interface SomeInterface {
+        test: String
+      }
+
+
+      type SubscriptionRoot implements SomeInterface {
+        test: String
+      }
+    `);
+    expectJSON(validateSchema(schemaWithDef)).toDeepEqual([
+      {
+        message: 'Root type "SubscriptionRoot" cannot implement interfaces.',
+        locations: [{ line: 16, column: 7 }],
       },
     ]);
   });
