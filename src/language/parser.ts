@@ -17,6 +17,7 @@ import type {
   DirectiveArgumentCoordinateNode,
   DirectiveCoordinateNode,
   DirectiveDefinitionNode,
+  DirectiveExtensionNode,
   DirectiveNode,
   DocumentNode,
   EnumTypeDefinitionNode,
@@ -111,6 +112,18 @@ export interface ParseOptions {
    * ```
    */
   allowLegacyFragmentVariables?: boolean;
+
+  /**
+   * EXPERIMENTAL:
+   *
+   * If enabled, the parser will parse directives on directive definitions.
+   * This syntax is not part of the GraphQL specification and may change.
+   *
+   * ```graphql
+   * directive @foo @bar on FIELD
+   * ```
+   */
+  experimentalDirectivesOnDirectiveDefinitions?: boolean;
 
   /**
    * You may override the Lexer class used to lex the source; this is used by
@@ -1184,6 +1197,7 @@ export class Parser {
    *   - UnionTypeExtension
    *   - EnumTypeExtension
    *   - InputObjectTypeDefinition
+   *   - DirectiveDefinitionExtension
    */
   parseTypeSystemExtension(): TypeSystemExtensionNode {
     const keywordToken = this._lexer.lookahead();
@@ -1204,6 +1218,11 @@ export class Parser {
           return this.parseEnumTypeExtension();
         case 'input':
           return this.parseInputObjectTypeExtension();
+        case 'directive':
+          if (this._options.experimentalDirectivesOnDirectiveDefinitions) {
+            return this.parseDirectiveDefinitionExtension();
+          }
+          break;
       }
     }
 
@@ -1386,6 +1405,23 @@ export class Parser {
     });
   }
 
+  parseDirectiveDefinitionExtension(): DirectiveExtensionNode {
+    const start = this._lexer.token;
+    this.expectKeyword('extend');
+    this.expectKeyword('directive');
+    this.expectToken(TokenKind.AT);
+    const name = this.parseName();
+    const directives = this.parseConstDirectives();
+    if (directives.length === 0) {
+      throw this.unexpected();
+    }
+    return this.node<DirectiveExtensionNode>(start, {
+      kind: Kind.DIRECTIVE_EXTENSION,
+      name,
+      directives,
+    });
+  }
+
   /**
    * ```
    * DirectiveDefinition :
@@ -1399,6 +1435,10 @@ export class Parser {
     this.expectToken(TokenKind.AT);
     const name = this.parseName();
     const args = this.parseArgumentDefs();
+    const directives = this._options
+      .experimentalDirectivesOnDirectiveDefinitions
+      ? this.parseConstDirectives()
+      : [];
     const repeatable = this.expectOptionalKeyword('repeatable');
     this.expectKeyword('on');
     const locations = this.parseDirectiveLocations();
@@ -1407,6 +1447,7 @@ export class Parser {
       description,
       name,
       arguments: args,
+      directives,
       repeatable,
       locations,
     });
@@ -1447,6 +1488,7 @@ export class Parser {
    *   `ENUM_VALUE`
    *   `INPUT_OBJECT`
    *   `INPUT_FIELD_DEFINITION`
+   *   `DIRECTIVE_DEFINITION`
    */
   parseDirectiveLocation(): NameNode {
     const start = this._lexer.token;

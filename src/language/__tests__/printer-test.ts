@@ -122,6 +122,21 @@ describe('Printer: Query document', () => {
     `);
   });
 
+  it('Experimental: prints directives on directives', () => {
+    const queryASTWithVariableDirective = parse(
+      `
+      directive @foo @bar on FIELD_DEFINITION
+      extend directive @foo @baz
+      `,
+      { experimentalDirectivesOnDirectiveDefinitions: true },
+    );
+    expect(print(queryASTWithVariableDirective)).to.equal(dedent`
+      directive @foo @bar on FIELD_DEFINITION
+      
+      extend directive @foo @baz
+    `);
+  });
+
   it('Legacy: correctly prints fragment defined variables', () => {
     const fragmentWithVariable = parse(
       `

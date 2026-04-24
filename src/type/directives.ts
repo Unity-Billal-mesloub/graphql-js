@@ -5,7 +5,10 @@ import { isObjectLike } from '../jsutils/isObjectLike';
 import type { Maybe } from '../jsutils/Maybe';
 import { toObjMap } from '../jsutils/toObjMap';
 
-import type { DirectiveDefinitionNode } from '../language/ast';
+import type {
+  DirectiveDefinitionNode,
+  DirectiveExtensionNode,
+} from '../language/ast';
 import { DirectiveLocation } from '../language/directiveLocation';
 
 import { assertName } from './assertName';
@@ -59,16 +62,20 @@ export class GraphQLDirective {
   locations: ReadonlyArray<DirectiveLocation>;
   args: ReadonlyArray<GraphQLArgument>;
   isRepeatable: boolean;
+  deprecationReason: Maybe<string>;
   extensions: Readonly<GraphQLDirectiveExtensions>;
   astNode: Maybe<DirectiveDefinitionNode>;
+  extensionASTNodes: ReadonlyArray<DirectiveExtensionNode>;
 
   constructor(config: Readonly<GraphQLDirectiveConfig>) {
     this.name = assertName(config.name);
     this.description = config.description;
     this.locations = config.locations;
     this.isRepeatable = config.isRepeatable ?? false;
+    this.deprecationReason = config.deprecationReason;
     this.extensions = toObjMap(config.extensions);
     this.astNode = config.astNode;
+    this.extensionASTNodes = config.extensionASTNodes ?? [];
 
     devAssert(
       Array.isArray(config.locations),
@@ -95,8 +102,10 @@ export class GraphQLDirective {
       locations: this.locations,
       args: argsToArgsConfig(this.args),
       isRepeatable: this.isRepeatable,
+      deprecationReason: this.deprecationReason,
       extensions: this.extensions,
       astNode: this.astNode,
+      extensionASTNodes: this.extensionASTNodes,
     };
   }
 
@@ -115,14 +124,17 @@ export interface GraphQLDirectiveConfig {
   locations: ReadonlyArray<DirectiveLocation>;
   args?: Maybe<GraphQLFieldConfigArgumentMap>;
   isRepeatable?: Maybe<boolean>;
+  deprecationReason?: Maybe<string>;
   extensions?: Maybe<Readonly<GraphQLDirectiveExtensions>>;
   astNode?: Maybe<DirectiveDefinitionNode>;
+  extensionASTNodes?: Maybe<ReadonlyArray<DirectiveExtensionNode>>;
 }
 
 interface GraphQLDirectiveNormalizedConfig extends GraphQLDirectiveConfig {
   args: GraphQLFieldConfigArgumentMap;
   isRepeatable: boolean;
   extensions: Readonly<GraphQLDirectiveExtensions>;
+  extensionASTNodes: ReadonlyArray<DirectiveExtensionNode>;
 }
 
 /**
@@ -182,6 +194,7 @@ export const GraphQLDeprecatedDirective: GraphQLDirective =
       DirectiveLocation.ARGUMENT_DEFINITION,
       DirectiveLocation.INPUT_FIELD_DEFINITION,
       DirectiveLocation.ENUM_VALUE,
+      DirectiveLocation.DIRECTIVE_DEFINITION,
     ],
     args: {
       reason: {
