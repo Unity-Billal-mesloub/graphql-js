@@ -47,6 +47,19 @@ describe('Validate: Defer/Stream directive labels', () => {
     `);
   });
 
+  it('Defer fragment with null label', () => {
+    expectValid(`
+      {
+        dog {
+          ...dogFragmentA @defer(label: null)
+        }
+      }
+      fragment dogFragmentA on Dog {
+        name
+      }
+    `);
+  });
+
   it('Defer fragment with variable label', () => {
     expectErrors(`
     query($label: String) {
@@ -122,6 +135,15 @@ describe('Validate: Defer/Stream directive labels', () => {
       }
       fragment dogFragment on Dog {
         name
+      }
+    `);
+  });
+  it('Stream with null label', () => {
+    expectValid(`
+      {
+        pets @stream(label: null) {
+          name
+        }
       }
     `);
   });
