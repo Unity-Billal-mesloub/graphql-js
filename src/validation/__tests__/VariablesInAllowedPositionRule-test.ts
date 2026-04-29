@@ -534,3 +534,23 @@ describe('Validates OneOf Input Objects', () => {
     ]);
   });
 });
+
+describe('Non-specified behavior of variables within custom scalars', () => {
+  it('Allows using variables inside object literal in custom scalar', () => {
+    expectValid(`
+      query Query($x: Float) {
+        dog {
+          distanceFrom(loc: {x: $x, y: 10.0})
+        }
+      }`);
+  });
+
+  it('Allows using variables inside list literal in custom scalar', () => {
+    expectValid(`
+      query Query($x: Float) {
+        dog {
+          distanceFrom(loc: [$x, 10.0])
+        }
+      }`);
+  });
+});

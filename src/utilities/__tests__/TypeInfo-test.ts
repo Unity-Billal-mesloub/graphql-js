@@ -519,6 +519,121 @@ describe('visitWithTypeInfo', () => {
     ]);
   });
 
+  it('supports traversals of object literals in custom scalar positions', () => {
+    const schema = buildSchema(`
+      scalar GeoPoint
+    `);
+    const ast = parseValue('{x: 4.0, y: 2.0}');
+    const scalarType = schema.getType('GeoPoint');
+    assert(scalarType != null);
+
+    const typeInfo = new TypeInfo(schema, scalarType);
+
+    const visited: Array<any> = [];
+    visit(
+      ast,
+      visitWithTypeInfo(typeInfo, {
+        enter(node) {
+          const type = typeInfo.getInputType();
+          const parentType = typeInfo.getParentInputType();
+          visited.push([
+            'enter',
+            node.kind,
+            node.kind === 'Name' ? node.value : null,
+            String(type),
+            String(parentType),
+          ]);
+        },
+        leave(node) {
+          const type = typeInfo.getInputType();
+          const parentType = typeInfo.getParentInputType();
+          visited.push([
+            'leave',
+            node.kind,
+            node.kind === 'Name' ? node.value : null,
+            String(type),
+            String(parentType),
+          ]);
+        },
+      }),
+    );
+
+    expect(visited).to.deep.equal([
+      // Everything within ObjectValue should have type: undefined since the
+      // contents of custom scalars are not part of the GraphQL type system.
+      // getParentInputType() continues to report the closest enclosing valid
+      // input type even after traversal leaves the GraphQL input type system.
+      ['enter', 'ObjectValue', null, 'GeoPoint', 'undefined'],
+      ['enter', 'ObjectField', null, 'undefined', 'GeoPoint'],
+      ['enter', 'Name', 'x', 'undefined', 'GeoPoint'],
+      ['leave', 'Name', 'x', 'undefined', 'GeoPoint'],
+      ['enter', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['leave', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['leave', 'ObjectField', null, 'undefined', 'GeoPoint'],
+      ['enter', 'ObjectField', null, 'undefined', 'GeoPoint'],
+      ['enter', 'Name', 'y', 'undefined', 'GeoPoint'],
+      ['leave', 'Name', 'y', 'undefined', 'GeoPoint'],
+      ['enter', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['leave', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['leave', 'ObjectField', null, 'undefined', 'GeoPoint'],
+      ['leave', 'ObjectValue', null, 'GeoPoint', 'undefined'],
+    ]);
+  });
+
+  it('supports traversals of list literals in custom scalar positions', () => {
+    const schema = buildSchema(`
+      scalar GeoPoint
+    `);
+    const ast = parseValue('[4.0, 2.0]');
+    const scalarType = schema.getType('GeoPoint');
+    assert(scalarType != null);
+
+    const typeInfo = new TypeInfo(schema, scalarType);
+
+    const visited: Array<any> = [];
+    visit(
+      ast,
+      visitWithTypeInfo(typeInfo, {
+        enter(node) {
+          const type = typeInfo.getInputType();
+          const parentType = typeInfo.getParentInputType();
+          visited.push([
+            'enter',
+            node.kind,
+            node.kind === 'Name' ? node.value : null,
+            String(type),
+            String(parentType),
+          ]);
+        },
+        leave(node) {
+          const type = typeInfo.getInputType();
+          const parentType = typeInfo.getParentInputType();
+          visited.push([
+            'leave',
+            node.kind,
+            node.kind === 'Name' ? node.value : null,
+            String(type),
+            String(parentType),
+          ]);
+        },
+      }),
+    );
+
+    expect(visited).to.deep.equal([
+      // Everything including ListValue should have type: undefined since the
+      // contents of custom scalars are not part of the GraphQL type system.
+      // ListValues carry the item type, so the item type is also undefined.
+      // getParentInputType() continues to report the closest enclosing valid
+      // input type even after traversal leaves the GraphQL input type system.
+      ['enter', 'ListValue', null, 'undefined', 'GeoPoint'],
+      ['enter', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['leave', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['enter', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['leave', 'FloatValue', null, 'undefined', 'GeoPoint'],
+      ['leave', 'ListValue', null, 'undefined', 'GeoPoint'],
+    ]);
+  });
+
   it('supports traversals of fragment arguments', () => {
     const typeInfo = new TypeInfo(testSchema);
 

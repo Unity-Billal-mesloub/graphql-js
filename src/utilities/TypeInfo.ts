@@ -116,6 +116,8 @@ export class TypeInfo {
     return this._inputTypeStack.at(-1);
   }
 
+  // Note: continues to expose the closest enclosing valid input type if
+  // traversal descends into syntax with no corresponding GraphQL input type.
   getParentInputType(): Maybe<GraphQLInputType> {
     return this._inputTypeStack.at(-2);
   }
@@ -254,7 +256,7 @@ export class TypeInfo {
         const listType: unknown = getNullableType(this.getInputType());
         const itemType: unknown = isListType(listType)
           ? listType.ofType
-          : listType;
+          : undefined;
         // List positions never have a default value.
         this._defaultValueStack.push(undefined);
         this._inputTypeStack.push(isInputType(itemType) ? itemType : undefined);
