@@ -64,7 +64,7 @@ export function valueToLiteral(
     const fields: Array<ConstObjectFieldNode> = [];
     const fieldDefs = type.getFields();
     const hasUndefinedField = Object.keys(value).some(
-      (name) => !Object.hasOwn(fieldDefs, name),
+      (name) => value[name] !== undefined && !Object.hasOwn(fieldDefs, name),
     );
     if (hasUndefinedField) {
       return; // Invalid: intentionally return no value.
