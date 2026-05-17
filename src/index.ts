@@ -566,6 +566,7 @@ export type {
   BreakingChange,
   SafeChange,
   DangerousChange,
+  SchemaChange,
   TypedQueryDocumentNode,
   ResolvedSchemaElement,
 } from './utilities/index.ts';
