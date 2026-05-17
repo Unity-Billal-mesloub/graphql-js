@@ -412,6 +412,9 @@ export {
   specifiedRules,
   recommendedRules,
   // Individual validation rules.
+  DeferStreamDirectiveLabelRule,
+  DeferStreamDirectiveOnRootFieldRule,
+  DeferStreamDirectiveOnValidOperationsRule,
   ExecutableDefinitionsRule,
   FieldsOnCorrectTypeRule,
   FragmentsOnCompositeTypesRule,
@@ -430,6 +433,7 @@ export {
   ProvidedRequiredArgumentsRule,
   ScalarLeafsRule,
   SingleFieldSubscriptionsRule,
+  StreamDirectiveOnListFieldRule,
   UniqueArgumentNamesRule,
   UniqueDirectivesPerLocationRule,
   UniqueFragmentNamesRule,
