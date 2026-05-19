@@ -1,4 +1,4 @@
-/** @category Definitions */
+/** @category Types */
 
 import { devAssert } from '../jsutils/devAssert.ts';
 import { didYouMean } from '../jsutils/didYouMean.ts';
@@ -1313,9 +1313,8 @@ export function assertAbstractType(type: unknown): GraphQLAbstractType {
  * A list is a wrapping type which points to another type.
  * Lists are often created within the context of defining the fields of
  * an object type.
- *
- * Example:
- *
+ * @typeParam T - The GraphQL type wrapped by this list type.
+ * @example
  * ```ts
  * const PersonType = new GraphQLObjectType({
  *   name: 'Person',
@@ -1325,7 +1324,6 @@ export function assertAbstractType(type: unknown): GraphQLAbstractType {
  *   })
  * })
  * ```
- * @typeParam T - The GraphQL type wrapped by this list type.
  */
 export class GraphQLList<
   T extends GraphQLType,
@@ -1410,9 +1408,8 @@ export class GraphQLList<
  * an error is raised if this ever occurs during a request. It is useful for
  * fields which you can make a strong guarantee on non-nullability, for example
  * usually the id field of a database row will never be null.
- *
- * Example:
- *
+ * @typeParam T - The nullable GraphQL type wrapped by this non-null type.
+ * @example
  * ```ts
  * const RowType = new GraphQLObjectType({
  *   name: 'Row',
@@ -1421,8 +1418,8 @@ export class GraphQLList<
  *   })
  * })
  * ```
+ *
  * Note: the enforcement of non-nullability occurs within the executor.
- * @typeParam T - The nullable GraphQL type wrapped by this non-null type.
  */
 export class GraphQLNonNull<
   T extends GraphQLNullableType,
@@ -1939,40 +1936,6 @@ export interface GraphQLScalarTypeExtensions {
  * `null` value will be returned in the response. Prefer validating inputs
  * before execution so clients receive input diagnostics before result coercion
  * fails.
- *
- * Example:
- *
- * ```ts
- * import { GraphQLScalarType, Kind } from 'graphql';
- *
- * const ensureOdd = (value) => {
- *   if (!Number.isFinite(value)) {
- *     throw new Error(
- *       `Scalar "Odd" cannot represent "${value}" since it is not a finite number.`,
- *     );
- *   }
- *
- *   if (value % 2 === 0) {
- *     throw new Error(`Scalar "Odd" cannot represent "${value}" since it is even.`);
- *   }
- *
- *   return value;
- * };
- *
- * const OddType = new GraphQLScalarType({
- *   name: 'Odd',
- *   coerceOutputValue: (value) => {
- *     return ensureOdd(value);
- *   },
- *   coerceInputValue: (value) => {
- *     return ensureOdd(value);
- *   },
- *   valueToLiteral: (value) => {
- *     return { kind: Kind.INT, value: String(ensureOdd(value)) };
- *   }
- * });
- * ```
- *
  * Custom scalar behavior is defined via the following functions:
  *
  *  - coerceOutputValue(value): Implements "Result Coercion". Given an internal value,
@@ -2007,6 +1970,37 @@ export interface GraphQLScalarTypeExtensions {
  *    `coerceInputLiteral()` method.
  * @typeParam TInternal - Internal runtime representation for this scalar.
  * @typeParam TExternal - External representation accepted from or returned to callers.
+ * @example
+ * ```ts
+ * import { GraphQLScalarType, Kind } from 'graphql';
+ *
+ * const ensureOdd = (value) => {
+ *   if (!Number.isFinite(value)) {
+ *     throw new Error(
+ *       `Scalar "Odd" cannot represent "${value}" since it is not a finite number.`,
+ *     );
+ *   }
+ *
+ *   if (value % 2 === 0) {
+ *     throw new Error(`Scalar "Odd" cannot represent "${value}" since it is even.`);
+ *   }
+ *
+ *   return value;
+ * };
+ *
+ * const OddType = new GraphQLScalarType({
+ *   name: 'Odd',
+ *   coerceOutputValue: (value) => {
+ *     return ensureOdd(value);
+ *   },
+ *   coerceInputValue: (value) => {
+ *     return ensureOdd(value);
+ *   },
+ *   valueToLiteral: (value) => {
+ *     return { kind: Kind.INT, value: String(ensureOdd(value)) };
+ *   }
+ * });
+ * ```
  */
 export class GraphQLScalarType<
   TInternal = unknown,
@@ -2024,17 +2018,20 @@ export class GraphQLScalarType<
   /** URL identifying the behavior specified for this custom scalar. */
   specifiedByURL: Maybe<string>;
   /**
-   * Legacy serializer used to convert internal values for response output.
+   * Deprecated legacy serializer used to convert internal values for response
+   * output. Use `coerceOutputValue()` instead.
    * @deprecated use `coerceOutputValue()` instead, `serialize()` will be removed in v18
    */
   serialize: GraphQLScalarSerializer<TExternal>;
   /**
-   * Legacy parser used to convert externally provided input values.
+   * Deprecated legacy parser used to convert externally provided input values.
+   * Use `coerceInputValue()` instead.
    * @deprecated use `coerceInputValue()` instead, `parseValue()` will be removed in v18
    */
   parseValue: GraphQLScalarValueParser<TInternal>;
   /**
-   * Legacy parser used to convert externally provided input literals.
+   * Deprecated legacy parser used to convert externally provided input
+   * literals. Use `replaceVariables()` and `coerceInputLiteral()` instead.
    * @deprecated use `replaceVariables()` and `coerceInputLiteral()` instead, `parseLiteral()` will be removed in v18
    */
   parseLiteral: GraphQLScalarLiteralParser<TInternal>;
@@ -2234,7 +2231,8 @@ export class GraphQLScalarType<
 }
 
 /**
- * Serializes a runtime value as a scalar output value.
+ * Deprecated function type that serializes a runtime value as a scalar output
+ * value. Use `GraphQLScalarOutputValueCoercer` instead.
  * @typeParam TExternal - External representation accepted from or returned to callers.
  * @deprecated Use GraphQLScalarOutputValueCoercer instead. Will be removed in v18.
  */
@@ -2251,7 +2249,8 @@ export type GraphQLScalarOutputValueCoercer<TExternal> = (
 ) => TExternal;
 
 /**
- * Parses a runtime input value as a scalar input value.
+ * Deprecated function type that parses a runtime input value as a scalar input
+ * value. Use `GraphQLScalarInputValueCoercer` instead.
  * @typeParam TInternal - Internal runtime representation for this scalar.
  * @deprecated Use GraphQLScalarInputValueCoercer instead. Will be removed in v18.
  */
@@ -2268,7 +2267,8 @@ export type GraphQLScalarInputValueCoercer<TInternal> = (
 ) => TInternal;
 
 /**
- * Parses a GraphQL value literal as a scalar input value.
+ * Deprecated function type that parses a GraphQL value literal as a scalar
+ * input value. Use `GraphQLScalarInputLiteralCoercer` instead.
  * @typeParam TInternal - Internal runtime representation for this scalar.
  * @deprecated Use GraphQLScalarInputLiteralCoercer instead. Will be removed in v18.
  */
@@ -2303,17 +2303,20 @@ export interface GraphQLScalarTypeConfig<TInternal, TExternal> {
   /** URL identifying the behavior specified for this custom scalar. */
   specifiedByURL?: Maybe<string>;
   /**
-   * Legacy serializer used to convert internal values for response output.
+   * Deprecated legacy serializer used to convert internal values for response
+   * output. Use `coerceOutputValue()` instead.
    * @deprecated use `coerceOutputValue()` instead, `serialize()` will be removed in v18
    */
   serialize?: GraphQLScalarSerializer<TExternal> | undefined;
   /**
-   * Legacy parser used to convert externally provided input values.
+   * Deprecated legacy parser used to convert externally provided input values.
+   * Use `coerceInputValue()` instead.
    * @deprecated use `coerceInputValue()` instead, `parseValue()` will be removed in v18
    */
   parseValue?: GraphQLScalarValueParser<TInternal> | undefined;
   /**
-   * Legacy parser used to convert externally provided input literals.
+   * Deprecated legacy parser used to convert externally provided input
+   * literals. Use `replaceVariables()` and `coerceInputLiteral()` instead.
    * @deprecated use `replaceVariables()` and `coerceInputLiteral()` instead, `parseLiteral()` will be removed in v18
    */
   parseLiteral?: GraphQLScalarLiteralParser<TInternal> | undefined;
@@ -2369,9 +2372,10 @@ export interface GraphQLObjectTypeExtensions<_TSource = any, _TContext = any> {
  *
  * Almost all of the GraphQL types you define will be object types. Object types
  * have a name, but most importantly describe their fields.
- *
- * Example:
- *
+ * @typeParam TSource - Source object type passed to resolvers.
+ * @typeParam TContext - Context object type passed to resolvers.
+ * @typeParam TAbstract - Runtime value type used for abstract type resolution.
+ * @example
  * ```ts
  * const AddressType = new GraphQLObjectType({
  *   name: 'Address',
@@ -2387,12 +2391,10 @@ export interface GraphQLObjectTypeExtensions<_TSource = any, _TContext = any> {
  *   }
  * });
  * ```
- *
+ * @example
  * When two types need to refer to each other, or a type needs to refer to
  * itself in a field, you can use a function expression (aka a closure or a
  * thunk) to supply the fields lazily.
- *
- * Example:
  *
  * ```ts
  * const PersonType = new GraphQLObjectType({
@@ -2403,9 +2405,6 @@ export interface GraphQLObjectTypeExtensions<_TSource = any, _TContext = any> {
  *   })
  * });
  * ```
- * @typeParam TSource - Source object type passed to resolvers.
- * @typeParam TContext - Context object type passed to resolvers.
- * @typeParam TAbstract - Runtime value type used for abstract type resolution.
  */
 export class GraphQLObjectType<
   TSource = any,
@@ -2954,7 +2953,7 @@ export interface GraphQLArgumentConfig {
   /** The GraphQL type reference or runtime type for this element. */
   type: GraphQLInputType;
   /**
-   * Legacy default value for this argument.
+   * Deprecated legacy default value for this argument. Use `default` instead.
    * @deprecated use `default` instead, `defaultValue` will be removed in v18
    */
   defaultValue?: unknown;
@@ -3186,7 +3185,8 @@ export class GraphQLArgument implements GraphQLSchemaElement {
   /** The GraphQL type reference or runtime type for this element. */
   type: GraphQLInputType;
   /**
-   * Legacy default value used when no explicit value is supplied.
+   * Deprecated legacy default value used when no explicit value is supplied.
+   * Use `default` instead.
    * @deprecated use `default` instead, `defaultValue` will be removed in v18
    */
   defaultValue: unknown;
@@ -3424,9 +3424,9 @@ export interface GraphQLInterfaceTypeExtensions {
  * is used to describe what types are possible, what fields are in common across
  * all types, as well as a function to determine which type is actually used
  * when the field is resolved.
- *
- * Example:
- *
+ * @typeParam TSource - Source object type passed to resolvers.
+ * @typeParam TContext - Context object type passed to resolvers.
+ * @example
  * ```ts
  * const EntityType = new GraphQLInterfaceType({
  *   name: 'Entity',
@@ -3435,8 +3435,6 @@ export interface GraphQLInterfaceTypeExtensions {
  *   }
  * });
  * ```
- * @typeParam TSource - Source object type passed to resolvers.
- * @typeParam TContext - Context object type passed to resolvers.
  */
 export class GraphQLInterfaceType<
   TSource = any,
@@ -3758,9 +3756,9 @@ export interface GraphQLUnionTypeExtensions {
  * When a field can return one of a heterogeneous set of types, a Union type
  * is used to describe what types are possible as well as providing a function
  * to determine which type is actually used when the field is resolved.
- *
- * Example:
- *
+ * @typeParam TSource - Source object type passed to resolvers.
+ * @typeParam TContext - Context object type passed to resolvers.
+ * @example
  * ```ts
  * const PetType = new GraphQLUnionType({
  *   name: 'Pet',
@@ -3775,8 +3773,6 @@ export interface GraphQLUnionTypeExtensions {
  *   }
  * });
  * ```
- * @typeParam TSource - Source object type passed to resolvers.
- * @typeParam TContext - Context object type passed to resolvers.
  */
 export class GraphQLUnionType<
   TSource = any,
@@ -4052,9 +4048,7 @@ export interface GraphQLEnumTypeExtensions {
  * Enum types define leaf values whose serialized form is one of a fixed set
  * of GraphQL enum names. Internally, enum values can map to any runtime value,
  * often integers.
- *
- * Example:
- *
+ * @example
  * ```ts
  * import { GraphQLEnumType } from 'graphql/type';
  *
@@ -4235,6 +4229,9 @@ export class GraphQLEnumType /* <T> */ implements GraphQLSchemaElement {
    * Serializes a runtime enum value as a GraphQL enum name.
    * @param outputValue - Runtime enum value to serialize.
    * @returns The GraphQL enum name for the runtime value.
+   *
+   * This deprecated method delegates to `coerceOutputValue()`; call
+   * `coerceOutputValue()` directly instead.
    * @example
    * ```ts
    * import { GraphQLEnumType } from 'graphql/type';
@@ -4292,7 +4289,8 @@ export class GraphQLEnumType /* <T> */ implements GraphQLSchemaElement {
   }
 
   /**
-   * Legacy enum parser for externally provided input values.
+   * Deprecated legacy enum parser for externally provided input values. Use
+   * `coerceInputValue()` instead.
    * @param inputValue - External enum name to parse.
    * @param hideSuggestions - Whether suggestion text should be omitted from errors.
    * @returns The internal runtime value for the enum name.
@@ -4367,7 +4365,8 @@ export class GraphQLEnumType /* <T> */ implements GraphQLSchemaElement {
   }
 
   /**
-   * Legacy enum parser for externally provided input literals.
+   * Deprecated legacy enum parser for externally provided input literals. Use
+   * `coerceInputLiteral()` instead.
    * @param valueNode - Enum value AST node to parse.
    * @param _variables - Deprecated variable values parameter that is no longer used.
    * @param hideSuggestions - Whether suggestion text should be omitted from errors.
@@ -4808,9 +4807,7 @@ export interface GraphQLInputObjectTypeExtensions {
  * supplied to a field argument.
  *
  * Using `NonNull` will ensure that a value must be provided by the query
- *
- * Example:
- *
+ * @example
  * ```ts
  * const GeoPoint = new GraphQLInputObjectType({
  *   name: 'GeoPoint',
@@ -5107,7 +5104,8 @@ export interface GraphQLInputFieldConfig {
   /** The GraphQL type reference or runtime type for this element. */
   type: GraphQLInputType;
   /**
-   * Legacy default value for this input field.
+   * Deprecated legacy default value for this input field. Use `default`
+   * instead.
    * @deprecated use `default` instead, `defaultValue` will be removed in v18
    */
   defaultValue?: unknown;
@@ -5150,7 +5148,8 @@ export class GraphQLInputField implements GraphQLSchemaElement {
   /** The GraphQL type reference or runtime type for this element. */
   type: GraphQLInputType;
   /**
-   * Legacy default value used when no explicit value is supplied.
+   * Deprecated legacy default value used when no explicit value is supplied.
+   * Use `default` instead.
    * @deprecated use `default` instead, `defaultValue` will be removed in v18
    */
   defaultValue: unknown;
