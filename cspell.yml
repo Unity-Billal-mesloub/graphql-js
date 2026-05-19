@@ -11,7 +11,8 @@ ignorePaths:
   - benchmark/github-schema.json
   - website/icons
   - website/css
-  - website/pages/api-v16-new
+  - website/pages/api-v16
+  - website/pages/api-v17
 overrides:
   - filename: 'website/**'
     dictionaries:
@@ -60,7 +61,11 @@ words:
   - sublinks
   - thunked
   - tsdoc
+  - worktree
+  - worktrees
   - instanceof
+  - apos
+  - middot
 
   # Different names used inside tests
   - Skywalker
@@ -92,55 +97,6 @@ words:
   - vercel
   - unbatched
 
-  # used as href anchors
-  - graphqlerror
-  - graphqlerroroptions
-  - syntaxerror
-  - formaterror
-  - locatederror
-  - executionargs
-  - graphqlargs
-  - graphqlsync
-  - graphqlschema
-  - graphqlsubscription
-  - graphqlscalartype
-  - graphqlobjecttype
-  - graphqlinterfacetype
-  - graphqluniontype
-  - graphqlenumtype
-  - graphqlinputobjecttype
-  - graphqllist
-  - graphqlnonnull
-  - graphqlint
-  - graphqlfloat
-  - graphqlstring
-  - graphqlboolean
-  - graphqlid
-  - getlocation
-  - directivelocation
-  - tokenkind
-  - getenterleaveforkind
-  - getroottype
-  - assertname
-  - isinputtype
-  - isoutputtype
-  - isleaftype
-  - iscompositetype
-  - isabstracttype
-  - getnullabletype
-  - getnamedtype
-  - introspectionquery
-  - buildclientschema
-  - buildschema
-  - printschema
-  - printintrospectionschema
-  - buildastschema
-  - typefromast
-  - astfromvalue
-  - typeinfo
-  - isvalidjsvalue
-  - isvalidliteralvalue
-  - specifiedrules
   - Wordmark
   - codeofconduct
   - graphqlconf
