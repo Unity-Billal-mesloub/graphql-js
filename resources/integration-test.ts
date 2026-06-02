@@ -55,6 +55,11 @@ describe('Integration Tests', () => {
   testOnNodeProject('node');
   testOnNodeProject('webpack');
 
+  // Tracing channel tests
+  testOnNodeProject('diagnostics-bun');
+  testOnNodeProject('diagnostics-deno-with-deno-build');
+  testOnNodeProject('diagnostics-deno-with-node-build');
+
   // Conditional export tests
   testOnNodeProject('conditions');
 

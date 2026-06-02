@@ -5,6 +5,8 @@ import type { Maybe } from '../jsutils/Maybe.ts';
 import type { GraphQLError } from '../error/GraphQLError.ts';
 import { syntaxError } from '../error/syntaxError.ts';
 
+import { parseChannel, shouldTrace } from '../diagnostics.ts';
+
 import type {
   ArgumentCoordinateNode,
   ArgumentNode,
@@ -184,6 +186,15 @@ export interface ParseOptions {
 export function parse(
   source: string | Source,
   options?: ParseOptions,
+): DocumentNode {
+  return shouldTrace(parseChannel)
+    ? parseChannel.traceSync(() => parseImpl(source, options), { source })
+    : parseImpl(source, options);
+}
+
+function parseImpl(
+  source: string | Source,
+  options: ParseOptions | undefined,
 ): DocumentNode {
   const parser = new Parser(source, options);
   const document = parser.parseDocument();

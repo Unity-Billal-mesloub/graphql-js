@@ -27,6 +27,17 @@ import type {
 } from '../type/index.ts';
 import { assertValidSchema } from '../type/index.ts';
 
+import { getOperationAST } from '../utilities/getOperationAST.ts';
+
+import type { GraphQLExecuteContext } from '../diagnostics.ts';
+import {
+  executeChannel,
+  executeVariableCoercionChannel,
+  shouldTrace,
+  subscribeChannel,
+  traceMixed,
+} from '../diagnostics.ts';
+
 import { buildResolveInfo } from './buildResolveInfo.ts';
 import { cancellablePromise } from './cancellablePromise.ts';
 import type { FieldDetailsList, FragmentDetails } from './collectFields.ts';
@@ -100,6 +111,44 @@ export type RootSelectionSetExecutor = (
  * ```
  */
 export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
+  if (!shouldTrace(executeChannel)) {
+    return executeImpl(args);
+  }
+  return traceMixed(executeChannel, buildOperationContextFromArgs(args), () =>
+    executeImpl(args),
+  );
+}
+
+/**
+ * Build a graphql:execute channel context from raw ExecutionArgs. Defers
+ * resolution of the operation AST to a lazy getter so the cost of walking
+ * the document is only paid if a subscriber reads it.
+ * @internal
+ */
+function buildOperationContextFromArgs(
+  args: ExecutionArgs,
+): Omit<GraphQLExecuteContext, 'error' | 'result'> {
+  let operation: OperationDefinitionNode | null | undefined;
+  const resolveOperation = (): OperationDefinitionNode | null | undefined => {
+    if (operation === undefined) {
+      operation = getOperationAST(args.document, args.operationName);
+    }
+    return operation;
+  };
+  return {
+    schema: args.schema,
+    document: args.document,
+    rawVariableValues: args.variableValues,
+    get operationName() {
+      return args.operationName ?? resolveOperation()?.name?.value;
+    },
+    get operationType() {
+      return resolveOperation()?.operation;
+    },
+  };
+}
+
+function executeImpl(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
   if (args.schema.getDirective('defer') || args.schema.getDirective('stream')) {
     throw new Error(UNEXPECTED_EXPERIMENTAL_DIRECTIVES);
   }
@@ -152,6 +201,17 @@ export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
 export function experimentalExecuteIncrementally(
   args: ExecutionArgs,
 ): PromiseOrValue<ExecutionResult | ExperimentalIncrementalExecutionResults> {
+  if (!shouldTrace(executeChannel)) {
+    return experimentalExecuteIncrementallyImpl(args);
+  }
+  return traceMixed(executeChannel, buildOperationContextFromArgs(args), () =>
+    experimentalExecuteIncrementallyImpl(args),
+  );
+}
+
+function experimentalExecuteIncrementallyImpl(
+  args: ExecutionArgs,
+): PromiseOrValue<ExecutionResult | ExperimentalIncrementalExecutionResults> {
   // If a valid execution context cannot be created due to incorrect arguments,
   // a "Response" with only errors is returned.
   const validatedExecutionArgs = validateExecutionArgs(args);
@@ -166,6 +226,17 @@ export function experimentalExecuteIncrementally(
 
 /** @internal */
 export function executeIgnoringIncremental(
+  args: ExecutionArgs,
+): PromiseOrValue<ExecutionResult | ExperimentalIncrementalExecutionResults> {
+  if (!shouldTrace(executeChannel)) {
+    return executeIgnoringIncrementalImpl(args);
+  }
+  return traceMixed(executeChannel, buildOperationContextFromArgs(args), () =>
+    executeIgnoringIncrementalImpl(args),
+  );
+}
+
+function executeIgnoringIncrementalImpl(
   args: ExecutionArgs,
 ): PromiseOrValue<ExecutionResult | ExperimentalIncrementalExecutionResults> {
   // If a valid execution context cannot be created due to incorrect arguments,
@@ -459,6 +530,19 @@ export function subscribe(
 ): PromiseOrValue<
   AsyncGenerator<ExecutionResult, void, void> | ExecutionResult
 > {
+  if (!shouldTrace(subscribeChannel)) {
+    return subscribeImpl(args);
+  }
+  return traceMixed(subscribeChannel, buildOperationContextFromArgs(args), () =>
+    subscribeImpl(args),
+  );
+}
+
+function subscribeImpl(
+  args: ExecutionArgs,
+): PromiseOrValue<
+  AsyncGenerator<ExecutionResult, void, void> | ExecutionResult
+> {
   // If a valid execution context cannot be created due to incorrect arguments,
   // a "Response" with only errors is returned.
   const validatedExecutionArgs = validateSubscriptionArgs(args);
@@ -699,15 +783,37 @@ export function validateExecutionArgs(
   const variableDefinitions = operation.variableDefinitions ?? [];
   const hideSuggestions = args.hideSuggestions ?? false;
 
-  const variableValuesOrErrors = getVariableValues(
-    schema,
-    variableDefinitions,
-    rawVariableValues ?? {},
-    {
-      maxErrors: options?.maxCoercionErrors ?? 50,
-      hideSuggestions,
-    },
-  );
+  const coercionInput = rawVariableValues ?? {};
+  const coercionOptions = {
+    maxErrors: options?.maxCoercionErrors ?? 50,
+    hideSuggestions,
+  };
+  const coercionChannel = executeVariableCoercionChannel;
+  const variableValuesOrErrors = shouldTrace(coercionChannel)
+    ? traceMixed(
+        coercionChannel,
+        {
+          schema,
+          document,
+          operation,
+          rawVariableValues,
+          operationName: operation.name?.value,
+          operationType: operation.operation,
+        },
+        () =>
+          getVariableValues(
+            schema,
+            variableDefinitions,
+            coercionInput,
+            coercionOptions,
+          ),
+      )
+    : getVariableValues(
+        schema,
+        variableDefinitions,
+        coercionInput,
+        coercionOptions,
+      );
 
   if (variableValuesOrErrors.errors) {
     return variableValuesOrErrors.errors;
@@ -720,6 +826,7 @@ export function validateExecutionArgs(
 
   return {
     schema,
+    document,
     fragmentDefinitions,
     fragments,
     rootValue,
@@ -734,6 +841,7 @@ export function validateExecutionArgs(
     externalAbortSignal: externalAbortSignal ?? undefined,
     enableEarlyExecution: enableEarlyExecution === true,
     hooks: hooks ?? undefined,
+    rawVariableValues,
   };
 }
 

@@ -14,6 +14,8 @@ import { assertValidSchema } from '../type/validate.ts';
 
 import { TypeInfo, visitWithTypeInfo } from '../utilities/TypeInfo.ts';
 
+import { shouldTrace, validateChannel } from '../diagnostics.ts';
+
 import { specifiedRules, specifiedSDLRules } from './specifiedRules.ts';
 import type { SDLValidationRule, ValidationRule } from './ValidationContext.ts';
 import {
@@ -121,6 +123,20 @@ export function validate(
   documentAST: DocumentNode,
   rules: ReadonlyArray<ValidationRule> = specifiedRules,
   options?: ValidationOptions,
+): ReadonlyArray<GraphQLError> {
+  return shouldTrace(validateChannel)
+    ? validateChannel.traceSync(
+        () => validateImpl(schema, documentAST, rules, options),
+        { schema, document: documentAST },
+      )
+    : validateImpl(schema, documentAST, rules, options);
+}
+
+function validateImpl(
+  schema: GraphQLSchema,
+  documentAST: DocumentNode,
+  rules: ReadonlyArray<ValidationRule>,
+  options: ValidationOptions | undefined,
 ): ReadonlyArray<GraphQLError> {
   const maxErrors = options?.maxErrors ?? 100;
   const hideSuggestions = options?.hideSuggestions ?? false;

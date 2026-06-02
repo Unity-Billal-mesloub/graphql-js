@@ -67,6 +67,8 @@ export interface ExecutionArgs {
 export interface ValidatedExecutionArgs {
   /** Schema used for execution. */
   schema: GraphQLSchema;
+  /** Parsed GraphQL document being executed. */
+  document: DocumentNode;
   // TODO: consider deprecating/removing fragmentDefinitions if/when fragment
   // arguments are officially supported and/or the full fragment details are
   // exposed within GraphQLResolveInfo.
@@ -82,6 +84,8 @@ export interface ValidatedExecutionArgs {
   operation: OperationDefinitionNode;
   /** Operation variable values with source metadata and coerced runtime values. */
   variableValues: VariableValues;
+  /** Raw variable values provided by the caller before coercion. */
+  rawVariableValues: Maybe<{ readonly [variable: string]: unknown }>;
   /** Resolver used for fields without an explicit resolver. */
   fieldResolver: GraphQLFieldResolver<any, any>;
   /** Resolver used for abstract types without an explicit type resolver. */

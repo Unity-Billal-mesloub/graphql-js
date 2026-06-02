@@ -40,6 +40,18 @@ import {
 } from '../type/definition.ts';
 import type { GraphQLSchema } from '../type/schema.ts';
 
+import type {
+  GraphQLExecuteRootSelectionSetContext,
+  GraphQLResolveContext,
+  MinimalTracingChannel,
+} from '../diagnostics.ts';
+import {
+  executeRootSelectionSetChannel,
+  resolveChannel,
+  shouldTrace,
+  traceMixed,
+} from '../diagnostics.ts';
+
 import { AbortedGraphQLExecutionError } from './AbortedGraphQLExecutionError.ts';
 import { buildResolveInfo } from './buildResolveInfo.ts';
 import { withCancellation } from './cancellablePromise.ts';
@@ -243,6 +255,38 @@ export class Executor<
   executeRootSelectionSet(
     serially?: boolean,
   ): PromiseOrValue<ExecutionResult | TAlternativeInitialResponse> {
+    if (!shouldTrace(executeRootSelectionSetChannel)) {
+      return this.executeRootSelectionSetImpl(serially);
+    }
+    return traceMixed(
+      executeRootSelectionSetChannel,
+      this.buildExecuteContextFromValidatedArgs(this.validatedExecutionArgs),
+      () => this.executeRootSelectionSetImpl(serially),
+    );
+  }
+
+  /**
+   * Build an operation-scoped diagnostics context from ValidatedExecutionArgs.
+   * Used after the operation has already been resolved during argument
+   * validation.
+   * @internal
+   */
+  buildExecuteContextFromValidatedArgs(
+    args: ValidatedExecutionArgs,
+  ): GraphQLExecuteRootSelectionSetContext {
+    return {
+      schema: args.schema,
+      document: args.document,
+      operation: args.operation,
+      rawVariableValues: args.rawVariableValues,
+      operationName: args.operation.name?.value,
+      operationType: args.operation.operation,
+    };
+  }
+
+  executeRootSelectionSetImpl(
+    serially?: boolean,
+  ): PromiseOrValue<ExecutionResult | TAlternativeInitialResponse> {
     const externalAbortSignal = this.validatedExecutionArgs.externalAbortSignal;
     let removeExternalAbortListener: (() => void) | undefined;
     if (externalAbortSignal) {
@@ -442,6 +486,10 @@ export class Executor<
     groupedFieldSet: GroupedFieldSet,
     positionContext: TPositionContext | undefined,
   ): PromiseOrValue<ObjMap<unknown>> {
+    let tracingChannel = shouldTrace(resolveChannel)
+      ? resolveChannel
+      : undefined;
+
     return promiseReduce(
       groupedFieldSet,
       (results, [responseName, fieldDetailsList]) => {
@@ -455,6 +503,7 @@ export class Executor<
           fieldDetailsList,
           fieldPath,
           positionContext,
+          tracingChannel,
         );
         if (result === undefined) {
           return results;
@@ -462,6 +511,9 @@ export class Executor<
         if (isPromise(result)) {
           return result.then((resolved) => {
             results[responseName] = resolved;
+            tracingChannel = shouldTrace(resolveChannel)
+              ? resolveChannel
+              : undefined;
             return results;
           });
         }
@@ -487,6 +539,9 @@ export class Executor<
   ): PromiseOrValue<ObjMap<unknown>> {
     const results = Object.create(null);
     let containsPromise = false;
+    const tracingChannel = shouldTrace(resolveChannel)
+      ? resolveChannel
+      : undefined;
 
     try {
       for (const [responseName, fieldDetailsList] of groupedFieldSet) {
@@ -497,6 +552,7 @@ export class Executor<
           fieldDetailsList,
           fieldPath,
           positionContext,
+          tracingChannel,
         );
 
         if (result !== undefined) {
@@ -540,6 +596,7 @@ export class Executor<
     fieldDetailsList: FieldDetailsList,
     path: Path,
     positionContext: TPositionContext | undefined,
+    tracingChannel: MinimalTracingChannel<GraphQLResolveContext> | undefined,
   ): PromiseOrValue<unknown> {
     const validatedExecutionArgs = this.validatedExecutionArgs;
     const { schema, contextValue, variableValues, hideSuggestions } =
@@ -553,7 +610,17 @@ export class Executor<
     }
 
     const returnType = fieldDef.type;
-    const resolveFn = fieldDef.resolve ?? validatedExecutionArgs.fieldResolver;
+    let resolveFn = fieldDef.resolve ?? validatedExecutionArgs.fieldResolver;
+
+    if (tracingChannel !== undefined) {
+      const originalResolveFn = resolveFn;
+      resolveFn = (s, args, c, info) =>
+        traceMixed(
+          tracingChannel,
+          this.buildResolveContext(args, info, fieldDef.resolve === undefined),
+          () => originalResolveFn(s, args, c, info),
+        );
+    }
 
     const info = buildResolveInfo(
       validatedExecutionArgs,
@@ -616,6 +683,34 @@ export class Executor<
       this.handleFieldError(rawError, returnType, fieldDetailsList, path);
       return null;
     }
+  }
+
+  /**
+   * Build a graphql:resolve channel context for a single field invocation.
+   *
+   * `fieldPath` is exposed as a lazy getter because serializing the response
+   * path is O(depth) and APMs that depth-filter or skip default resolvers
+   * often never read it. `args` is passed through by reference.
+   * @internal
+   */
+  buildResolveContext(
+    args: ObjMap<unknown>,
+    info: GraphQLResolveInfo,
+    isDefaultResolver: boolean,
+  ): GraphQLResolveContext {
+    let cachedFieldPath: string | undefined;
+    return {
+      fieldName: info.fieldName,
+      alias: String(info.path.key),
+      parentType: info.parentType.name,
+      fieldType: String(info.returnType),
+      args,
+      isDefaultResolver,
+      get fieldPath() {
+        cachedFieldPath ??= pathToArray(info.path).join('.');
+        return cachedFieldPath;
+      },
+    };
   }
 
   handleFieldError(
