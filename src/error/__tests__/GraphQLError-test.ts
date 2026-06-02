@@ -1,4 +1,5 @@
 import { describe, it } from 'node:test';
+import { inspect as nodeInspect } from 'node:util';
 
 import { assert, expect } from 'chai';
 
@@ -63,18 +64,29 @@ describe('GraphQLError', () => {
     ]);
   });
 
-  it('uses the stack of cause when possible', () => {
-    const original = new Error('original');
+  it('does not copy over the stack of cause', () => {
+    function createOriginalError(): Error {
+      return new Error('original');
+    }
+    const original = createOriginalError();
     const e = new GraphQLError('msg', {
       cause: original,
     });
+    const originalStackFrame = original.stack
+      ?.split('\n')
+      .find((line) => line.includes('createOriginalError'));
+    assert(originalStackFrame != null);
 
     expect(e).to.include({
       name: 'GraphQLError',
       message: 'msg',
-      stack: original.stack,
       cause: original,
     });
+    expect(e.stack).to.not.equal(original.stack);
+
+    const inspectedError = nodeInspect(e);
+    expect(inspectedError).to.include('[cause]: Error: original');
+    expect(inspectedError).to.include(originalStackFrame.trim());
   });
 
   it('uses the stack of an original error via originalError', () => {
@@ -107,7 +119,6 @@ describe('GraphQLError', () => {
     expect(e).to.deep.include({
       name: 'GraphQLError',
       message: 'msg',
-      stack: cause.stack,
       cause,
       originalError: cause,
       extensions: { original: 'extensions' },
@@ -139,14 +150,15 @@ describe('GraphQLError', () => {
   });
 
   it('creates new stack if cause has no stack', () => {
-    const original = new Error('original');
-    delete original.stack;
-    const e = new GraphQLError('msg', { originalError: original });
+    const cause = new Error('cause');
+    delete cause.stack;
+    const e = new GraphQLError('msg', { cause });
 
     expect(e).to.include({
       name: 'GraphQLError',
       message: 'msg',
-      cause: original,
+      cause,
+      originalError: cause,
     });
     expect(e.stack).to.be.a('string');
   });
