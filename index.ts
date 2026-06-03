@@ -1,35 +1,54 @@
 /**
- * GraphQL.js provides a reference implementation for the GraphQL specification
- * but is also a useful utility for operating on GraphQL files and building
- * sophisticated tools.
+ * The root `graphql` package re-exports the public GraphQL.js API from its
+ * submodules and provides the high-level request pipeline helpers defined in
+ * this module.
  *
- * This primary module exports a general purpose function for fulfilling all
- * steps of the GraphQL specification in a single operation, but also includes
- * utilities for every part of the GraphQL specification:
- *
- *   - Parsing the GraphQL language.
- *   - Building a GraphQL type schema.
- *   - Validating a GraphQL request against a type schema.
- *   - Executing a GraphQL request against a type schema.
- *
- * This also includes utility functions for operating on GraphQL types and
- * GraphQL documents to facilitate building tools.
- *
- * You may also import from each sub-directory directly. For example, the
- * following two import statements are equivalent:
+ * You can import public exports from GraphQL.js modules through the root
+ * `graphql` package or through their module-specific entry point. For example,
+ * these two references resolve to the same `parse` function:
  *
  * ```ts
  * import { parse } from 'graphql';
  * import { parse } from 'graphql/language';
  * ```
  *
+ * Use the root package when you want a single import surface, or use submodules
+ * such as `graphql/language`, `graphql/type`, `graphql/execution`, and
+ * `graphql/utilities` when you want module-focused imports. This module also
+ * defines root-only APIs, such as request pipeline helpers and version
+ * metadata, that do not belong to a narrower submodule.
  * @packageDocumentation
  */
 // The GraphQL.js version info.
 export { version, versionInfo } from './version.ts';
+// Enable development mode for additional checks.
+export { enableDevMode, isDevModeEnabled } from './devMode.ts';
+// Tracing channel types for subscribers that want to strongly type the
+// `graphql:*` channel context payloads. Channels are auto-registered on
+// `node:diagnostics_channel` at module load.
+export type {
+  GraphQLChannelContextByName,
+  GraphQLChannels,
+  GraphQLExecuteContext,
+  GraphQLExecuteRootSelectionSetContext,
+  GraphQLExecuteVariableCoercionContext,
+  GraphQLParseContext,
+  GraphQLResolveContext,
+  GraphQLSubscribeContext,
+  GraphQLValidateContext,
+} from './diagnostics.ts';
 // The primary entry point into fulfilling a GraphQL request.
 export type { GraphQLArgs } from './graphql.ts';
 export { graphql, graphqlSync } from './graphql.ts';
+// The default versions of the parse/validate/execute/subscribe harness used by `graphql` and `graphqlSync`.
+export { defaultHarness } from './harness.ts';
+export type {
+  GraphQLHarness,
+  GraphQLParseFn,
+  GraphQLValidateFn,
+  GraphQLExecuteFn,
+  GraphQLSubscribeFn,
+} from './harness.ts';
 // Create and operate on GraphQL type definitions and schema.
 export type {
   GraphQLField,
@@ -196,6 +215,7 @@ export type {
   GraphQLObjectTypeConfig,
   GraphQLObjectTypeExtensions,
   GraphQLResolveInfo,
+  GraphQLResolveInfoHelpers,
   ResponsePath,
   GraphQLScalarTypeConfig,
   GraphQLScalarTypeExtensions,
@@ -212,7 +232,9 @@ export type {
 } from './type/index.ts';
 // Parse and operate on GraphQL language source files.
 // @see https://github.com/typescript-eslint/typescript-eslint/issues/10313
-// eslint-disable-next-line @typescript-eslint/consistent-type-exports
+// Deno  misclassifies this merged value+type re-export and requires `export type`.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore TS1205
 export { Kind } from './language/kinds.ts';
 export {
   Token,
@@ -231,6 +253,7 @@ export {
   parseValue,
   parseConstValue,
   parseType,
+  parseSchemaCoordinate,
   // Print
   print,
   // Visit
@@ -250,6 +273,8 @@ export {
   isTypeDefinitionNode,
   isTypeSystemExtensionNode,
   isTypeExtensionNode,
+  isSchemaCoordinateNode,
+  isSubscriptionOperationDefinitionNode,
 } from './language/index.ts';
 export type {
   ParseOptions,
@@ -267,6 +292,7 @@ export type {
   DefinitionNode,
   ExecutableDefinitionNode,
   OperationDefinitionNode,
+  SubscriptionOperationDefinitionNode,
   VariableDefinitionNode,
   VariableNode,
   SelectionSetNode,
@@ -321,14 +347,24 @@ export type {
   UnionTypeExtensionNode,
   EnumTypeExtensionNode,
   InputObjectTypeExtensionNode,
+  DirectiveExtensionNode,
+  SchemaCoordinateNode,
+  TypeCoordinateNode,
+  MemberCoordinateNode,
+  ArgumentCoordinateNode,
+  DirectiveCoordinateNode,
+  DirectiveArgumentCoordinateNode,
 } from './language/index.ts';
 // Execute GraphQL queries.
 export {
+  AbortedGraphQLExecutionError,
   execute,
-  executeQueryOrMutationOrSubscriptionEvent,
+  executeRootSelectionSet,
   executeSubscriptionEvent,
   experimentalExecuteIncrementally,
-  experimentalExecuteQueryOrMutationOrSubscriptionEvent,
+  experimentalExecuteRootSelectionSet,
+  legacyExecuteIncrementally,
+  legacyExecuteRootSelectionSet,
   executeSync,
   defaultFieldResolver,
   defaultTypeResolver,
@@ -338,10 +374,18 @@ export {
   getDirectiveValues,
   subscribe,
   createSourceEventStream,
+  mapSourceToResponseEvent,
+  validateExecutionArgs,
+  validateSubscriptionArgs,
 } from './execution/index.ts';
 export type {
   ExecutionArgs,
+  RootSelectionSetExecutor,
+  AsyncWorkFinishedInfo,
+  ExecutionHooks,
+  VariableValues,
   ValidatedExecutionArgs,
+  ValidatedSubscriptionArgs,
   ExecutionResult,
   ExperimentalIncrementalExecutionResults,
   InitialIncrementalExecutionResult,
@@ -350,11 +394,24 @@ export type {
   IncrementalStreamResult,
   IncrementalResult,
   FormattedExecutionResult,
+  FormattedExperimentalIncrementalExecutionResults,
   FormattedInitialIncrementalExecutionResult,
   FormattedSubsequentIncrementalExecutionResult,
   FormattedIncrementalDeferResult,
   FormattedIncrementalStreamResult,
   FormattedIncrementalResult,
+  LegacyExperimentalIncrementalExecutionResults,
+  LegacyInitialIncrementalExecutionResult,
+  LegacySubsequentIncrementalExecutionResult,
+  LegacyIncrementalDeferResult,
+  LegacyIncrementalStreamResult,
+  LegacyIncrementalResult,
+  FormattedLegacyExperimentalIncrementalExecutionResults,
+  FormattedLegacyInitialIncrementalExecutionResult,
+  FormattedLegacySubsequentIncrementalExecutionResult,
+  FormattedLegacyIncrementalDeferResult,
+  FormattedLegacyIncrementalStreamResult,
+  FormattedLegacyIncrementalResult,
 } from './execution/index.ts';
 // Validate GraphQL documents.
 export {
@@ -364,6 +421,9 @@ export {
   specifiedRules,
   recommendedRules,
   // Individual validation rules.
+  DeferStreamDirectiveLabelRule,
+  DeferStreamDirectiveOnRootFieldRule,
+  DeferStreamDirectiveOnValidOperationsRule,
   ExecutableDefinitionsRule,
   FieldsOnCorrectTypeRule,
   FragmentsOnCompositeTypesRule,
@@ -382,6 +442,7 @@ export {
   ProvidedRequiredArgumentsRule,
   ScalarLeafsRule,
   SingleFieldSubscriptionsRule,
+  StreamDirectiveOnListFieldRule,
   UniqueArgumentNamesRule,
   UniqueDirectivesPerLocationRule,
   UniqueFragmentNamesRule,
@@ -405,7 +466,7 @@ export {
   NoDeprecatedCustomRule,
   NoSchemaIntrospectionCustomRule,
 } from './validation/index.ts';
-export type { ValidationRule } from './validation/index.ts';
+export type { ValidationOptions, ValidationRule } from './validation/index.ts';
 // Create, format, and print GraphQL errors.
 export { GraphQLError, syntaxError, locatedError } from './error/index.ts';
 export type {
@@ -444,12 +505,20 @@ export {
   // Create a GraphQLType from a GraphQL language AST.
   typeFromAST,
   // Create a JavaScript value from a GraphQL language AST with a Type.
-  /** @deprecated use `coerceInputLiteral()` instead - will be removed in v18 */
+  /**
+   * Deprecated export retained for compatibility. Use `coerceInputLiteral()`
+   * instead.
+   * @deprecated use `coerceInputLiteral()` instead - will be removed in v18
+   */
   valueFromAST,
   // Create a JavaScript value from a GraphQL language AST without a Type.
   valueFromASTUntyped,
   // Create a GraphQL language AST from a JavaScript value.
-  /** @deprecated use `valueToLiteral()` instead with care to operate on external values - `astFromValue()` will be removed in v18 */
+  /**
+   * Deprecated export retained for compatibility. Use `valueToLiteral()`
+   * instead, and take care to operate on external values.
+   * @deprecated use `valueToLiteral()` instead with care to operate on external values - `astFromValue()` will be removed in v18
+   */
   astFromValue,
   // A helper to use within recursive-descent visitors which need to be aware of the GraphQL type system.
   TypeInfo,
@@ -483,6 +552,8 @@ export {
   findBreakingChanges,
   findDangerousChanges,
   findSchemaChanges,
+  resolveSchemaCoordinate,
+  resolveASTSchemaCoordinate,
 } from './utilities/index.ts';
 export type {
   IntrospectionOptions,
@@ -511,5 +582,7 @@ export type {
   BreakingChange,
   SafeChange,
   DangerousChange,
+  SchemaChange,
   TypedQueryDocumentNode,
+  ResolvedSchemaElement,
 } from './utilities/index.ts';

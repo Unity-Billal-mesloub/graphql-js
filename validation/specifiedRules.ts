@@ -1,3 +1,4 @@
+/** @category Validation Rules */
 // Spec Section: "Defer And Stream Directive Labels Are Unique"
 import { DeferStreamDirectiveLabelRule } from './rules/DeferStreamDirectiveLabelRule.ts';
 // Spec Section: "Defer And Stream Directives Are Used On Valid Root Field"
@@ -82,7 +83,9 @@ import type { SDLValidationRule, ValidationRule } from './ValidationContext.ts';
  * Technically these aren't part of the spec but they are strongly encouraged
  * validation rules.
  */
-export const recommendedRules = Object.freeze([MaxIntrospectionDepthRule]);
+export const recommendedRules: ReadonlyArray<ValidationRule> = Object.freeze([
+  MaxIntrospectionDepthRule,
+]);
 /**
  * This set includes all validation rules defined by the GraphQL spec.
  *
@@ -123,9 +126,7 @@ export const specifiedRules: ReadonlyArray<ValidationRule> = Object.freeze([
   UniqueInputFieldNamesRule,
   ...recommendedRules,
 ]);
-/**
- * @internal
- */
+/** @internal */
 export const specifiedSDLRules: ReadonlyArray<SDLValidationRule> =
   Object.freeze([
     LoneSchemaDefinitionRule,

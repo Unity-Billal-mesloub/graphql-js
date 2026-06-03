@@ -48,6 +48,8 @@ import {
 import type { GraphQLSchemaNormalizedConfig } from '../type/schema.ts';
 /**
  * The set of GraphQL Schema Elements.
+ *
+ * @internal
  */
 export const SchemaElementKind = {
   SCHEMA: 'SCHEMA' as const,
@@ -63,9 +65,11 @@ export const SchemaElementKind = {
   INPUT_FIELD: 'INPUT_FIELD' as const,
   DIRECTIVE: 'DIRECTIVE' as const,
 } as const;
+/** @internal */
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 type SchemaElementKind =
   (typeof SchemaElementKind)[keyof typeof SchemaElementKind];
+/** @internal */
 export interface MappedSchemaContext {
   getNamedType: (typeName: string) => GraphQLNamedType;
   setNamedType: (type: GraphQLNamedType) => void;
@@ -87,7 +91,7 @@ type GraphQLInterfaceTypeMappedConfig = EnsureThunks<
   'interfaces' | 'fields'
 >;
 type GraphQLUnionTypeMappedConfig = EnsureThunks<
-  GraphQLUnionTypeNormalizedConfig,
+  GraphQLUnionTypeNormalizedConfig<any, any>,
   'types'
 >;
 type GraphQLEnumTypeMappedConfig = EnsureThunks<
@@ -141,6 +145,7 @@ type DirectiveConfigMapper = (
 type SchemaConfigMapper = (
   originalSchemaConfig: GraphQLSchemaNormalizedConfig,
 ) => GraphQLSchemaNormalizedConfig;
+/** @internal */
 export interface ConfigMapperMap {
   [SchemaElementKind.SCALAR]?: ScalarTypeConfigMapper;
   [SchemaElementKind.OBJECT]?: ObjectTypeConfigMapper;
@@ -155,9 +160,7 @@ export interface ConfigMapperMap {
   [SchemaElementKind.DIRECTIVE]?: DirectiveConfigMapper;
   [SchemaElementKind.SCHEMA]?: SchemaConfigMapper;
 }
-/**
- * @internal
- */
+/** @internal */
 export function mapSchemaConfig(
   schemaConfig: GraphQLSchemaNormalizedConfig,
   configMapperMapFn: (context: MappedSchemaContext) => ConfigMapperMap,
@@ -216,7 +219,7 @@ export function mapSchemaConfig(
   }
   function getNamedType(typeName: string): GraphQLNamedType {
     const type = stdTypeMap.get(typeName) ?? mappedTypeMap.get(typeName);
-    type !== undefined || invariant(false, `Unknown type: "${typeName}".`);
+    if (!(type !== undefined)) invariant(false, `Unknown type: "${typeName}".`);
     return type;
   }
   function setNamedType(type: GraphQLNamedType): void {
@@ -247,10 +250,10 @@ export function mapSchemaConfig(
     }
     if (isInputObjectType(type)) {
       return mapInputObjectType(type);
+      /* node:coverage ignore next 4 */
     }
-    /* c8 ignore next 3 */
     // Not reachable, all possible type definition nodes have been considered.
-    false || invariant(false, 'Unexpected type: ' + inspect(type));
+    invariant(false, 'Unexpected type: ' + inspect(type));
   }
   function mapScalarType(type: GraphQLScalarType): GraphQLScalarType {
     let mappedConfig: Maybe<GraphQLScalarTypeMappedConfig> = type.toConfig();

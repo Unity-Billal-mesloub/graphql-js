@@ -1,13 +1,27 @@
+/**
+ * Parse, print, and visit GraphQL language source files and AST nodes.
+ *
+ * These exports are also available from the root `graphql` package.
+ * @packageDocumentation
+ */
 export { Source } from './source.ts';
 export { getLocation } from './location.ts';
 export type { SourceLocation } from './location.ts';
 export { printLocation, printSourceLocation } from './printLocation.ts';
 // @see https://github.com/typescript-eslint/typescript-eslint/issues/10313
-// eslint-disable-next-line @typescript-eslint/consistent-type-exports
+// Deno  misclassifies this merged value+type re-export and requires `export type`.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore TS1205
 export { Kind } from './kinds.ts';
 export { TokenKind } from './tokenKind.ts';
 export { Lexer } from './lexer.ts';
-export { parse, parseValue, parseConstValue, parseType } from './parser.ts';
+export {
+  parse,
+  parseValue,
+  parseConstValue,
+  parseType,
+  parseSchemaCoordinate,
+} from './parser.ts';
 export type { ParseOptions } from './parser.ts';
 export { print } from './printer.ts';
 export {
@@ -27,6 +41,7 @@ export type {
   DefinitionNode,
   ExecutableDefinitionNode,
   OperationDefinitionNode,
+  SubscriptionOperationDefinitionNode,
   VariableDefinitionNode,
   VariableNode,
   SelectionSetNode,
@@ -81,6 +96,13 @@ export type {
   UnionTypeExtensionNode,
   EnumTypeExtensionNode,
   InputObjectTypeExtensionNode,
+  DirectiveExtensionNode,
+  SchemaCoordinateNode,
+  TypeCoordinateNode,
+  MemberCoordinateNode,
+  ArgumentCoordinateNode,
+  DirectiveCoordinateNode,
+  DirectiveArgumentCoordinateNode,
 } from './ast.ts';
 export {
   isDefinitionNode,
@@ -93,5 +115,7 @@ export {
   isTypeDefinitionNode,
   isTypeSystemExtensionNode,
   isTypeExtensionNode,
+  isSchemaCoordinateNode,
+  isSubscriptionOperationDefinitionNode,
 } from './predicates.ts';
 export { DirectiveLocation } from './directiveLocation.ts';

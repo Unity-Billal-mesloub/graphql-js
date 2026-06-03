@@ -1,8 +1,10 @@
+/** @category Schema Construction */
 import { AccumulatorMap } from '../jsutils/AccumulatorMap.ts';
 import { invariant } from '../jsutils/invariant.ts';
 import type { Maybe } from '../jsutils/Maybe.ts';
 import type {
   DirectiveDefinitionNode,
+  DirectiveExtensionNode,
   DocumentNode,
   EnumTypeDefinitionNode,
   EnumTypeExtensionNode,
@@ -32,6 +34,7 @@ import type {
   GraphQLFieldNormalizedConfigMap,
   GraphQLInputFieldNormalizedConfigMap,
   GraphQLNamedType,
+  GraphQLNullableType,
   GraphQLType,
 } from '../type/definition.ts';
 import {
@@ -65,6 +68,8 @@ interface Options extends GraphQLSchemaValidationOptions {
    * Set to true to assume the SDL is valid.
    *
    * Default: false
+   *
+   * @internal
    */
   assumeValidSDL?: boolean | undefined;
 }
@@ -79,6 +84,60 @@ interface Options extends GraphQLSchemaValidationOptions {
  *
  * This algorithm copies the provided schema, applying extensions while
  * producing the copy. The original schema remains unaltered.
+ * @param schema - GraphQL schema to use.
+ * @param documentAST - The parsed GraphQL document AST.
+ * @param options - Optional configuration for this operation.
+ * @returns A new schema with the extensions and definitions applied.
+ * @example
+ * ```ts
+ * // Extend a schema with new fields and types.
+ * import { parse } from 'graphql/language';
+ * import { buildSchema, extendSchema } from 'graphql/utilities';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     greeting: String
+ *   }
+ * `);
+ * const extensionAST = parse(`
+ *   extend type Query {
+ *     farewell: String
+ *   }
+ *
+ *   type Review {
+ *     body: String
+ *   }
+ * `);
+ *
+ * const extendedSchema = extendSchema(schema, extensionAST);
+ *
+ * schema.getType('Review'); // => undefined
+ * extendedSchema.getType('Review')?.name; // => 'Review'
+ * Object.keys(extendedSchema.getQueryType().getFields()); // => ['greeting', 'farewell']
+ * ```
+ * @example
+ * ```ts
+ * // This variant bypasses validation for an otherwise invalid extension.
+ * import { parse } from 'graphql/language';
+ * import { buildSchema, extendSchema } from 'graphql/utilities';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     greeting: String
+ *   }
+ * `);
+ * const invalidExtension = parse(`
+ *   extend type Missing {
+ *     field: String
+ *   }
+ * `);
+ *
+ * extendSchema(schema, invalidExtension); // throws an error
+ * extendSchema(schema, invalidExtension, {
+ *     assumeValid: true,
+ *     assumeValidSDL: true,
+ *   }); // does not throw
+ * ```
  */
 export function extendSchema(
   schema: GraphQLSchema,
@@ -95,9 +154,7 @@ export function extendSchema(
     ? schema
     : new GraphQLSchema(extendedConfig);
 }
-/**
- * @internal
- */
+/** @internal */
 export function extendSchemaImpl(
   schemaConfig: GraphQLSchemaNormalizedConfig,
   documentAST: DocumentNode,
@@ -123,6 +180,10 @@ export function extendSchemaImpl(
     string,
     InputObjectTypeExtensionNode
   >();
+  const directiveExtensions = new AccumulatorMap<
+    string,
+    DirectiveExtensionNode
+  >();
   // New directives and types are separate because a directives and types can
   // have the same name. For example, a type named "skip".
   const directiveDefs: Array<DirectiveDefinitionNode> = [];
@@ -140,6 +201,9 @@ export function extendSchemaImpl(
         break;
       case Kind.DIRECTIVE_DEFINITION:
         directiveDefs.push(def);
+        break;
+      case Kind.DIRECTIVE_EXTENSION:
+        directiveExtensions.add(def.name.value, def);
         break;
       // Type Definitions
       case Kind.SCALAR_TYPE_DEFINITION:
@@ -209,7 +273,7 @@ export function extendSchemaImpl(
           ...operationTypes,
           types: getNamedTypes(),
           directives: [
-            ...config.directives,
+            ...config.directives.map(extendDirective),
             ...directiveDefs.map(buildDirective),
           ],
           extensions: config.extensions,
@@ -316,7 +380,7 @@ export function extendSchemaImpl(
     function namedTypeFromAST(node: NamedTypeNode): GraphQLNamedType {
       const name = node.name.value;
       const type = getNamedType(name);
-      type !== undefined || invariant(false, `Unknown type: "${name}".`);
+      if (!(type !== undefined)) invariant(false, `Unknown type: "${name}".`);
       return type;
     }
     function typeFromAST(node: TypeNode): GraphQLType {
@@ -324,11 +388,19 @@ export function extendSchemaImpl(
         return new GraphQLList(typeFromAST(node.type));
       }
       if (node.kind === Kind.NON_NULL_TYPE) {
-        return new GraphQLNonNull(typeFromAST(node.type));
+        return new GraphQLNonNull(
+          typeFromAST(node.type) as GraphQLNullableType,
+        );
       }
       return namedTypeFromAST(node);
     }
     function buildDirective(node: DirectiveDefinitionNode): GraphQLDirective {
+      const extensionASTNodes = directiveExtensions.get(node.name.value) ?? [];
+      const deprecationReason =
+        getDeprecationReason(node) ??
+        extensionASTNodes
+          .map((extensionNode) => getDeprecationReason(extensionNode))
+          .find((reason) => reason != null);
       return new GraphQLDirective({
         name: node.name.value,
         description: node.description?.value,
@@ -336,7 +408,26 @@ export function extendSchemaImpl(
         locations: node.locations.map(({ value }) => value),
         isRepeatable: node.repeatable,
         args: buildArgumentMap(node.arguments),
+        deprecationReason,
         astNode: node,
+        extensionASTNodes,
+      });
+    }
+    function extendDirective(directive: GraphQLDirective): GraphQLDirective {
+      const extensionASTNodes = directiveExtensions.get(directive.name) ?? [];
+      if (extensionASTNodes.length === 0) {
+        return directive;
+      }
+      const deprecationReason =
+        directive.deprecationReason ??
+        extensionASTNodes
+          .map((extensionNode) => getDeprecationReason(extensionNode))
+          .find((reason) => reason != null);
+      return new GraphQLDirective({
+        ...directive.toConfig(),
+        deprecationReason,
+        extensionASTNodes:
+          directive.extensionASTNodes.concat(extensionASTNodes),
       });
     }
     function buildFieldMap(
@@ -534,12 +625,16 @@ const stdTypeMap = new Map(
 /**
  * Given a field or enum value node, returns the string value for the
  * deprecation reason.
+ *
+ * @internal
  */
 function getDeprecationReason(
   node:
     | EnumValueDefinitionNode
     | FieldDefinitionNode
-    | InputValueDefinitionNode,
+    | InputValueDefinitionNode
+    | DirectiveDefinitionNode
+    | DirectiveExtensionNode,
 ): Maybe<string> {
   const deprecated = getDirectiveValues(GraphQLDeprecatedDirective, node);
   // @ts-expect-error validated by `getDirectiveValues`
@@ -547,6 +642,8 @@ function getDeprecationReason(
 }
 /**
  * Given a scalar node, returns the string value for the specifiedByURL.
+ *
+ * @internal
  */
 function getSpecifiedByURL(
   node: ScalarTypeDefinitionNode | ScalarTypeExtensionNode,
@@ -557,6 +654,8 @@ function getSpecifiedByURL(
 }
 /**
  * Given an input object node, returns if the node should be OneOf.
+ *
+ * @internal
  */
 function isOneOf(node: InputObjectTypeDefinitionNode): boolean {
   return Boolean(getDirectiveValues(GraphQLOneOfDirective, node));

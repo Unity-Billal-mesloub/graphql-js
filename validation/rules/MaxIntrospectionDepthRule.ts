@@ -1,15 +1,48 @@
+/** @category Validation Rules */
 import { GraphQLError } from '../../error/GraphQLError.ts';
 import type { ASTNode } from '../../language/ast.ts';
 import { Kind } from '../../language/kinds.ts';
 import type { ASTVisitor } from '../../language/visitor.ts';
-import type { ValidationContext } from '../ValidationContext.ts';
+import type { ASTValidationContext } from '../ValidationContext.ts';
 const MAX_LISTS_DEPTH = 3;
+/**
+ * Implements the max introspection depth validation rule.
+ * @param context - The validation context used while checking the document.
+ * @returns A visitor that reports validation errors for this rule.
+ * @example
+ * ```ts
+ * import { buildSchema, parse, validate } from 'graphql';
+ * import { MaxIntrospectionDepthRule } from 'graphql/validation';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     name: String
+ *   }
+ * `);
+ *
+ * const invalidDocument = parse(`
+ *   { __schema { types { fields { type { fields { type { fields { name } } } } } } } }
+ * `);
+ * const invalidErrors = validate(schema, invalidDocument, [MaxIntrospectionDepthRule]);
+ *
+ * invalidErrors.length; // => 1
+ *
+ * const validDocument = parse(`
+ *   { __schema { queryType { name } } }
+ * `);
+ * const validErrors = validate(schema, validDocument, [MaxIntrospectionDepthRule]);
+ *
+ * validErrors; // => []
+ * ```
+ */
 export function MaxIntrospectionDepthRule(
-  context: ValidationContext,
+  context: ASTValidationContext,
 ): ASTVisitor {
   /**
    * Counts the depth of list fields in "__Type" recursively and
    * returns `true` if the limit has been reached.
+   *
+   * @internal
    */
   function checkDepth(
     node: ASTNode,
@@ -26,7 +59,7 @@ export function MaxIntrospectionDepthRule(
       }
       const fragment = context.getFragment(fragmentName);
       if (!fragment) {
-        // Missing fragments checks are handled by the `KnownFragmentNamesRule`.
+        // Missing fragments checks are handled by `KnownFragmentNamesRule`.
         return false;
       }
       // Rather than following an immutable programming pattern which has
@@ -44,7 +77,6 @@ export function MaxIntrospectionDepthRule(
     if (
       node.kind === Kind.FIELD &&
       // check all introspection lists
-      // TODO: instead of relying on field names, check whether the type is a list
       (node.name.value === 'fields' ||
         node.name.value === 'interfaces' ||
         node.name.value === 'possibleTypes' ||

@@ -1,3 +1,4 @@
+/** @category Validation Rules */
 import type { Maybe } from '../../jsutils/Maybe.ts';
 import type { ValueNode } from '../../language/ast.ts';
 import type { ASTVisitor } from '../../language/visitor.ts';
@@ -11,6 +12,33 @@ import type { ValidationContext } from '../ValidationContext.ts';
  * expected at their position.
  *
  * See https://spec.graphql.org/draft/#sec-Values-of-Correct-Type
+ * @param context - The validation context used while checking the document.
+ * @returns A visitor that reports validation errors for this rule.
+ * @example
+ * ```ts
+ * import { buildSchema, parse, validate } from 'graphql';
+ * import { ValuesOfCorrectTypeRule } from 'graphql/validation';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     count(limit: Int): Int
+ *   }
+ * `);
+ *
+ * const invalidDocument = parse(`
+ *   { count(limit: "many") }
+ * `);
+ * const invalidErrors = validate(schema, invalidDocument, [ValuesOfCorrectTypeRule]);
+ *
+ * invalidErrors.length; // => 1
+ *
+ * const validDocument = parse(`
+ *   { count(limit: 1) }
+ * `);
+ * const validErrors = validate(schema, validDocument, [ValuesOfCorrectTypeRule]);
+ *
+ * validErrors; // => []
+ * ```
  */
 export function ValuesOfCorrectTypeRule(
   context: ValidationContext,
@@ -29,6 +57,11 @@ export function ValuesOfCorrectTypeRule(
     IntValue: (node) => isValidValueNode(context, node, context.getInputType()),
     FloatValue: (node) =>
       isValidValueNode(context, node, context.getInputType()),
+    // Descriptions are string values that would not validate according
+    // to the below logic, but since (per the specification) descriptions must
+    // not affect validation, they are ignored entirely when visiting the AST
+    // and do not require special handling.
+    // See https://spec.graphql.org/draft/#sec-Descriptions
     StringValue: (node) =>
       isValidValueNode(context, node, context.getInputType()),
     BooleanValue: (node) =>
@@ -38,6 +71,8 @@ export function ValuesOfCorrectTypeRule(
 /**
  * Any value literal may be a valid representation of a Scalar, depending on
  * that scalar type.
+ *
+ * @internal
  */
 function isValidValueNode(
   context: ValidationContext,

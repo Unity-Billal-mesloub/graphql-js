@@ -1,13 +1,13 @@
 import { AccumulatorMap } from '../jsutils/AccumulatorMap.ts';
 import type { ObjMap, ReadOnlyObjMap } from '../jsutils/ObjMap.ts';
 import type {
-  ConstValueNode,
   DirectiveNode,
   FieldNode,
   FragmentDefinitionNode,
   FragmentSpreadNode,
   InlineFragmentNode,
   SelectionSetNode,
+  ValueNode,
 } from '../language/ast.ts';
 import { Kind } from '../language/kinds.ts';
 import type { GraphQLObjectType } from '../type/definition.ts';
@@ -26,26 +26,33 @@ import {
   getDirectiveValues,
   getFragmentVariableValues,
 } from './values.ts';
+/** @internal */
 export interface DeferUsage {
   label: string | undefined;
   parentDeferUsage: DeferUsage | undefined;
 }
+/** @internal */
 export interface FragmentVariableValues {
   readonly sources: ReadOnlyObjMap<FragmentVariableValueSource>;
   readonly coerced: ReadOnlyObjMap<unknown>;
 }
-interface FragmentVariableValueSource {
+/** @internal */
+export interface FragmentVariableValueSource {
   readonly signature: GraphQLVariableSignature;
-  readonly value?: ConstValueNode;
+  readonly value?: ValueNode;
   readonly fragmentVariableValues?: FragmentVariableValues;
 }
+/** @internal */
 export interface FieldDetails {
   node: FieldNode;
   deferUsage?: DeferUsage | undefined;
   fragmentVariableValues?: FragmentVariableValues | undefined;
 }
+/** @internal */
 export type FieldDetailsList = ReadonlyArray<FieldDetails>;
+/** @internal */
 export type GroupedFieldSet = ReadonlyMap<string, FieldDetailsList>;
+/** @internal */
 export interface FragmentDetails {
   definition: FragmentDefinitionNode;
   variableSignatures?: ObjMap<GraphQLVariableSignature> | undefined;
@@ -55,7 +62,7 @@ interface CollectFieldsContext {
   fragments: ObjMap<FragmentDetails>;
   variableValues: VariableValues;
   runtimeType: GraphQLObjectType;
-  visitedFragmentNames: Set<string>;
+  visitedFragmentNames: Map<string, boolean>;
   hideSuggestions: boolean;
   forbiddenDirectiveInstances: Array<DirectiveNode>;
   forbidSkipAndInclude: boolean;
@@ -69,7 +76,7 @@ interface CollectFieldsContext {
  *
  * @internal
  */
-// eslint-disable-next-line @typescript-eslint/max-params
+// eslint-disable-next-line max-params
 export function collectFields(
   schema: GraphQLSchema,
   fragments: ObjMap<FragmentDetails>,
@@ -90,7 +97,7 @@ export function collectFields(
     fragments,
     variableValues,
     runtimeType,
-    visitedFragmentNames: new Set(),
+    visitedFragmentNames: new Map(),
     hideSuggestions,
     forbiddenDirectiveInstances: [],
     forbidSkipAndInclude,
@@ -112,7 +119,7 @@ export function collectFields(
  *
  * @internal
  */
-// eslint-disable-next-line @typescript-eslint/max-params
+// eslint-disable-next-line max-params
 export function collectSubfields(
   schema: GraphQLSchema,
   fragments: ObjMap<FragmentDetails>,
@@ -129,7 +136,7 @@ export function collectSubfields(
     fragments,
     variableValues,
     runtimeType: returnType,
-    visitedFragmentNames: new Set(),
+    visitedFragmentNames: new Map(),
     hideSuggestions,
     forbiddenDirectiveInstances: [],
     forbidSkipAndInclude: false,
@@ -155,7 +162,8 @@ export function collectSubfields(
     newDeferUsages,
   };
 }
-// eslint-disable-next-line @typescript-eslint/max-params
+/** @internal */
+// eslint-disable-next-line max-params
 function collectFieldsImpl(
   context: CollectFieldsContext,
   selectionSet: SelectionSetNode,
@@ -235,7 +243,6 @@ function collectFieldsImpl(
       case Kind.FRAGMENT_SPREAD: {
         const fragName = selection.name.value;
         if (
-          visitedFragmentNames.has(fragName) ||
           !shouldIncludeNode(
             context,
             selection,
@@ -258,6 +265,26 @@ function collectFieldsImpl(
           selection,
           deferUsage,
         );
+        const visitedAsDeferred = visitedFragmentNames.get(fragName);
+        let maybeNewDeferUsage: DeferUsage | undefined;
+        if (!newDeferUsage) {
+          // If this spread is not deferred, it may be skipped when already visited
+          // as a non-deferred spread. If it was previously visited as a deferred spread,
+          // it must be revisited.
+          if (visitedAsDeferred === false) {
+            continue;
+          }
+          visitedFragmentNames.set(fragName, false);
+          maybeNewDeferUsage = deferUsage;
+        } else {
+          // If this spread is deferred, it can be skipped if it has already been visited.
+          if (visitedAsDeferred !== undefined) {
+            continue;
+          }
+          visitedFragmentNames.set(fragName, true);
+          newDeferUsages.push(newDeferUsage);
+          maybeNewDeferUsage = newDeferUsage;
+        }
         const fragmentVariableSignatures = fragment.variableSignatures;
         let newFragmentVariableValues: FragmentVariableValues | undefined;
         if (fragmentVariableSignatures) {
@@ -269,27 +296,14 @@ function collectFieldsImpl(
             hideSuggestions,
           );
         }
-        if (!newDeferUsage) {
-          visitedFragmentNames.add(fragName);
-          collectFieldsImpl(
-            context,
-            fragment.definition.selectionSet,
-            groupedFieldSet,
-            newDeferUsages,
-            deferUsage,
-            newFragmentVariableValues,
-          );
-        } else {
-          newDeferUsages.push(newDeferUsage);
-          collectFieldsImpl(
-            context,
-            fragment.definition.selectionSet,
-            groupedFieldSet,
-            newDeferUsages,
-            newDeferUsage,
-            newFragmentVariableValues,
-          );
-        }
+        collectFieldsImpl(
+          context,
+          fragment.definition.selectionSet,
+          groupedFieldSet,
+          newDeferUsages,
+          maybeNewDeferUsage,
+          newFragmentVariableValues,
+        );
         break;
       }
     }
@@ -299,6 +313,8 @@ function collectFieldsImpl(
  * Returns an object containing the `@defer` arguments if a field should be
  * deferred based on the experimental flag, defer directive present and
  * not disabled by the "if" argument.
+ *
+ * @internal
  */
 function getDeferUsage(
   variableValues: VariableValues,
@@ -326,6 +342,8 @@ function getDeferUsage(
 /**
  * Determines if a field should be included based on the `@include` and `@skip`
  * directives, where `@skip` has higher precedence than `@include`.
+ *
+ * @internal
  */
 function shouldIncludeNode(
   context: CollectFieldsContext,
@@ -375,6 +393,8 @@ function shouldIncludeNode(
 }
 /**
  * Determines if a fragment is applicable to the given type.
+ *
+ * @internal
  */
 function doesFragmentConditionMatch(
   schema: GraphQLSchema,
@@ -396,6 +416,8 @@ function doesFragmentConditionMatch(
 }
 /**
  * Implements the logic to compute the key of a given field's entry
+ *
+ * @internal
  */
 function getFieldEntryKey(node: FieldNode): string {
   return node.alias ? node.alias.value : node.name.value;

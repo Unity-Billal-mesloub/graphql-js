@@ -1,3 +1,4 @@
+/** @category Errors */
 import { isObjectLike } from '../jsutils/isObjectLike.ts';
 import type { Maybe } from '../jsutils/Maybe.ts';
 import type { ASTNode, Location } from '../language/ast.ts';
@@ -10,7 +11,6 @@ import {
 import type { Source } from '../language/source.ts';
 /**
  * Custom extensions
- *
  * @remarks
  * Use a unique identifier name for your extension, for example the name of
  * your library or project. Do not use a shortened identifier as this increases
@@ -22,7 +22,6 @@ export interface GraphQLErrorExtensions {
 }
 /**
  * Custom formatted extensions
- *
  * @remarks
  * Use a unique identifier name for your extension, for example the name of
  * your library or project. Do not use a shortened identifier as this increases
@@ -32,16 +31,29 @@ export interface GraphQLErrorExtensions {
 export interface GraphQLFormattedErrorExtensions {
   [attributeName: string]: unknown;
 }
+/** Options used to construct a GraphQLError. */
 export interface GraphQLErrorOptions {
+  /** AST node or nodes associated with this error. */
   nodes?: ReadonlyArray<ASTNode> | ASTNode | null | undefined;
+  /** Source document used to derive error locations. */
   source?: Maybe<Source>;
+  /** Character offsets in the source document associated with this error. */
   positions?: Maybe<ReadonlyArray<number>>;
+  /** Response path where this error occurred during execution. */
   path?: Maybe<ReadonlyArray<string | number>>;
+  /**
+   * Original error that caused this GraphQLError, if one exists.
+   * Deprecated in favor of `cause` to better align with JavaScript standards.
+   * @deprecated Prefer `cause` instead.
+   */
   originalError?: Maybe<
     Error & {
       readonly extensions?: unknown;
     }
   >;
+  /** Cause of this GraphQLError, if one exists. */
+  cause?: unknown;
+  /** Extension fields to include in the formatted result. */
   extensions?: Maybe<GraphQLErrorExtensions>;
 }
 /**
@@ -69,9 +81,7 @@ export class GraphQLError extends Error {
    * Enumerable, and appears in the result of JSON.stringify().
    */
   readonly path: ReadonlyArray<string | number> | undefined;
-  /**
-   * An array of GraphQL AST Nodes corresponding to this error.
-   */
+  /** An array of GraphQL AST Nodes corresponding to this error. */
   readonly nodes: ReadonlyArray<ASTNode> | undefined;
   /**
    * The source GraphQL document for the first location of this error.
@@ -86,20 +96,69 @@ export class GraphQLError extends Error {
    */
   readonly positions: ReadonlyArray<number> | undefined;
   /**
-   * The original error thrown from a field resolver during execution.
+   * Original error that caused this GraphQLError, if one exists.
+   * Deprecated in favor of `cause` to better align with JavaScript standards.
+   * @deprecated Use `cause` instead.
    */
   readonly originalError: Error | undefined;
-  /**
-   * Extension fields to add to the formatted error.
-   */
+  /** Extension fields to add to the formatted error. */
   readonly extensions: GraphQLErrorExtensions;
+  /**
+   * Creates a GraphQLError instance.
+   * @param message - Human-readable error message.
+   * @param options - Error metadata such as source locations, response path, cause, original error, and extensions.
+   * @example
+   * ```ts
+   * // Create an error from AST nodes and response metadata.
+   * import { parse } from 'graphql/language';
+   * import { GraphQLError } from 'graphql/error';
+   *
+   * const document = parse('{ greeting }');
+   * const fieldNode = document.definitions[0].selectionSet.selections[0];
+   * const error = new GraphQLError('Cannot query this field.', {
+   *   nodes: fieldNode,
+   *   path: ['greeting'],
+   *   extensions: { code: 'FORBIDDEN' },
+   * });
+   *
+   * error.message; // => 'Cannot query this field.'
+   * error.locations; // => [{ line: 1, column: 3 }]
+   * error.path; // => ['greeting']
+   * error.extensions; // => { code: 'FORBIDDEN' }
+   * ```
+   * @example
+   * ```ts
+   * // This variant derives locations from source positions and preserves the cause.
+   * import { Source } from 'graphql/language';
+   * import { GraphQLError } from 'graphql/error';
+   *
+   * const source = new Source('{ greeting }');
+   * const cause = new Error('Database unavailable.');
+   * const error = new GraphQLError('Resolver failed.', {
+   *   source,
+   *   positions: [2],
+   *   path: ['greeting'],
+   *   cause,
+   * });
+   *
+   * error.locations; // => [{ line: 1, column: 3 }]
+   * error.path; // => ['greeting']
+   * error.cause; // => cause
+   * ```
+   */
   constructor(message: string, options: GraphQLErrorOptions = {}) {
-    const { nodes, source, positions, path, originalError, extensions } =
+    const { nodes, source, positions, path, originalError, cause, extensions } =
       options;
-    super(message);
+    const hasCause = 'cause' in options;
+    const errorCause = hasCause ? cause : originalError;
+    const errorOptions =
+      hasCause || originalError != null ? { cause: errorCause } : undefined;
+    super(message, errorOptions);
     this.name = 'GraphQLError';
     this.path = path ?? undefined;
-    this.originalError = originalError ?? undefined;
+    const underlyingError: typeof originalError =
+      originalError ?? (cause instanceof Error ? cause : undefined);
+    this.originalError = underlyingError;
     // Compute list of blame nodes.
     this.nodes = undefinedIfEmpty(
       Array.isArray(nodes) ? nodes : nodes ? [nodes] : undefined,
@@ -116,8 +175,8 @@ export class GraphQLError extends Error {
       positions && source
         ? positions.map((pos) => getLocation(source, pos))
         : nodeLocations?.map((loc) => getLocation(loc.source, loc.start));
-    const originalExtensions = isObjectLike(originalError?.extensions)
-      ? originalError?.extensions
+    const originalExtensions = isObjectLike(underlyingError?.extensions)
+      ? underlyingError.extensions
       : undefined;
     this.extensions = extensions ?? originalExtensions ?? Object.create(null);
     // Only properties prescribed by the spec should be enumerable.
@@ -134,8 +193,10 @@ export class GraphQLError extends Error {
       originalError: { enumerable: false },
     });
     // Include (non-enumerable) stack trace.
-    /* c8 ignore start */
-    // FIXME: https://github.com/graphql/graphql-js/issues/2317
+    // Do not copy over the stack trace of the Error.cause, since the tooling
+    // already nicely prints/reports the cause chains.
+    // Preserve the copy-over behavior of the `originalError`, since users may
+    // expect it to work the way it did originally.
     if (originalError?.stack != null) {
       Object.defineProperty(this, 'stack', {
         value: originalError.stack,
@@ -144,6 +205,8 @@ export class GraphQLError extends Error {
       });
     } else if (Error.captureStackTrace != null) {
       Error.captureStackTrace(this, GraphQLError);
+      // See: https://github.com/graphql/graphql-js/issues/2317
+      /* node:coverage ignore next 7 */
     } else {
       Object.defineProperty(this, 'stack', {
         value: Error().stack,
@@ -151,11 +214,30 @@ export class GraphQLError extends Error {
         configurable: true,
       });
     }
-    /* c8 ignore stop */
   }
+  /**
+   * Returns the value used by `Object.prototype.toString`.
+   * @returns The built-in string tag for this object.
+   */
   get [Symbol.toStringTag](): string {
     return 'GraphQLError';
   }
+  /**
+   * Returns this error as a human-readable message with source locations.
+   * @returns The formatted error string.
+   * @example
+   * ```ts
+   * import { Source } from 'graphql/language';
+   * import { GraphQLError } from 'graphql/error';
+   *
+   * const error = new GraphQLError('Cannot query field "name".', {
+   *   source: new Source('{ name }'),
+   *   positions: [2],
+   * });
+   *
+   * error.toString(); // => 'Cannot query field "name".\n\nGraphQL request:1:3\n1 | { name }\n  |   ^'
+   * ```
+   */
   override toString(): string {
     let output = this.message;
     if (this.nodes) {
@@ -171,6 +253,21 @@ export class GraphQLError extends Error {
     }
     return output;
   }
+  /**
+   * Returns the JSON representation used when this object is serialized.
+   * @returns The JSON-serializable representation.
+   * @example
+   * ```ts
+   * import { GraphQLError } from 'graphql/error';
+   *
+   * const error = new GraphQLError('Resolver failed.', {
+   *   path: ['viewer', 'name'],
+   *   extensions: { code: 'INTERNAL' },
+   * });
+   *
+   * error.toJSON(); // => { message: 'Resolver failed.', path: ['viewer', 'name'], extensions: { code: 'INTERNAL' } }
+   * ```
+   */
   toJSON(): GraphQLFormattedError {
     type WritableFormattedError = {
       -readonly [P in keyof GraphQLFormattedError]: GraphQLFormattedError[P];
@@ -195,9 +292,7 @@ function undefinedIfEmpty<T>(
 ): Array<T> | undefined {
   return array === undefined || array.length === 0 ? undefined : array;
 }
-/**
- * See: https://spec.graphql.org/draft/#sec-Errors
- */
+/** See: https://spec.graphql.org/draft/#sec-Errors */
 export interface GraphQLFormattedError {
   /**
    * A short, human-readable summary of the problem that **SHOULD NOT** change

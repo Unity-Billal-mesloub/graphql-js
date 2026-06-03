@@ -1,3 +1,4 @@
+/** @category Values */
 import { inspect } from '../jsutils/inspect.ts';
 import { invariant } from '../jsutils/invariant.ts';
 import type { Maybe } from '../jsutils/Maybe.ts';
@@ -20,6 +21,9 @@ import {
  * Returns `undefined` when the value could not be validly coerced according to
  * the provided type.
  *
+ * This deprecated function will be removed in v18. Use `coerceInputLiteral()`
+ * instead.
+ *
  * | GraphQL Value        | JSON Value    |
  * | -------------------- | ------------- |
  * | Input Object         | Object        |
@@ -29,7 +33,44 @@ import {
  * | Int / Float          | Number        |
  * | Enum Value           | Unknown       |
  * | NullValue            | null          |
+ * @param valueNode - GraphQL value AST node to convert.
+ * @param type - The GraphQL type to inspect.
+ * @param variables - Optional runtime variable values keyed by variable name.
+ * @returns The coerced JavaScript value, or undefined if the AST value cannot be coerced to the type.
+ * @example
+ * ```ts
+ * // Coerce literal values without variables.
+ * import { parseValue } from 'graphql/language';
+ * import {
+ *   GraphQLInputObjectType,
+ *   GraphQLInt,
+ *   GraphQLList,
+ *   GraphQLNonNull,
+ *   GraphQLString,
+ * } from 'graphql/type';
+ * import { valueFromAST } from 'graphql/utilities';
  *
+ * const ReviewInput = new GraphQLInputObjectType({
+ *   name: 'ReviewInput',
+ *   fields: {
+ *     stars: { type: new GraphQLNonNull(GraphQLInt) },
+ *     tags: { type: new GraphQLList(GraphQLString) },
+ *   },
+ * });
+ *
+ * valueFromAST(parseValue('{ stars: 5, tags: ["featured"] }'), ReviewInput); // => { stars: 5, tags: ['featured'] }
+ * valueFromAST(parseValue('{ stars: "bad" }'), ReviewInput); // => undefined
+ * ```
+ * @example
+ * ```ts
+ * // This variant resolves variable references from runtime values.
+ * import { parseValue } from 'graphql/language';
+ * import { GraphQLInt } from 'graphql/type';
+ * import { valueFromAST } from 'graphql/utilities';
+ *
+ * valueFromAST(parseValue('$stars'), GraphQLInt, { stars: 5 }); // => 5
+ * valueFromAST(parseValue('$stars'), GraphQLInt, {}); // => undefined
+ * ```
  * @deprecated use `coerceInputLiteral()` instead - will be removed in v18
  */
 export function valueFromAST(
@@ -44,7 +85,11 @@ export function valueFromAST(
   }
   if (valueNode.kind === Kind.VARIABLE) {
     const variableName = valueNode.name.value;
-    const variableValue = variables?.[variableName];
+    if (variables == null || !Object.hasOwn(variables, variableName)) {
+      // No valid return value.
+      return;
+    }
+    const variableValue = variables[variableName];
     if (variableValue === undefined) {
       // No valid return value.
       return;
@@ -100,10 +145,17 @@ export function valueFromAST(
       return; // Invalid: intentionally return no value.
     }
     const coercedObj = Object.create(null);
+    const fieldDefs = type.getFields();
+    const hasUnknownField = valueNode.fields.some(
+      (field) => !Object.hasOwn(fieldDefs, field.name.value),
+    );
+    if (hasUnknownField) {
+      return; // Invalid: intentionally return no value.
+    }
     const fieldNodes = new Map(
       valueNode.fields.map((field) => [field.name.value, field]),
     );
-    for (const field of Object.values(type.getFields())) {
+    for (const field of Object.values(fieldDefs)) {
       const fieldNode = fieldNodes.get(field.name);
       if (fieldNode == null || isMissingVariable(fieldNode.value, variables)) {
         if (field.defaultValue !== undefined) {
@@ -120,12 +172,17 @@ export function valueFromAST(
       coercedObj[field.name] = fieldValue;
     }
     if (type.isOneOf) {
-      const keys = Object.keys(coercedObj);
-      if (keys.length !== 1) {
+      const coercedKeys = Object.keys(coercedObj);
+      if (fieldNodes.size !== 1 || coercedKeys.length !== 1) {
         return; // Invalid: not exactly one key, intentionally return no value.
       }
-      if (coercedObj[keys[0]] === null) {
-        return; // Invalid: value not non-null, intentionally return no value.
+      for (const [fieldName, fieldNode] of fieldNodes) {
+        if (
+          fieldNode.value.kind === Kind.NULL ||
+          coercedObj[fieldName] === null
+        ) {
+          return; // Invalid: value not non-null, intentionally return no value.
+        }
       }
     }
     return coercedObj;
@@ -144,10 +201,10 @@ export function valueFromAST(
       return; // Invalid: intentionally return no value.
     }
     return result;
+    /* node:coverage ignore next 4 */
   }
-  /* c8 ignore next 3 */
   // Not reachable, all possible input types have been considered.
-  false || invariant(false, 'Unexpected input type: ' + inspect(type));
+  invariant(false, 'Unexpected input type: ' + inspect(type));
 }
 // Returns true if the provided valueNode is a variable which is not defined
 // in the set of variables.
@@ -157,6 +214,7 @@ function isMissingVariable(
 ): boolean {
   return (
     valueNode.kind === Kind.VARIABLE &&
-    (variables == null || variables[valueNode.name.value] === undefined)
+    (variables?.[valueNode.name.value] === undefined ||
+      !Object.hasOwn(variables, valueNode.name.value))
   );
 }

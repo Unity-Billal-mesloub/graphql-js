@@ -1,3 +1,10 @@
+/**
+ * Utilities for building schemas, working with introspection, transforming ASTs,
+ * and comparing GraphQL types.
+ *
+ * These exports are also available from the root `graphql` package.
+ * @packageDocumentation
+ */
 // Produce the GraphQL query recommended for a full schema introspection.
 export { getIntrospectionQuery } from './getIntrospectionQuery.ts';
 export type {
@@ -48,14 +55,22 @@ export {
 export { typeFromAST } from './typeFromAST.ts';
 // Create a JavaScript value from a GraphQL language AST with a type.
 export {
-  /** @deprecated use `coerceInputLiteral()` instead - will be removed in v18 */
+  /**
+   * Deprecated export retained for compatibility. Use `coerceInputLiteral()`
+   * instead.
+   * @deprecated use `coerceInputLiteral()` instead - will be removed in v18
+   */
   valueFromAST,
 } from './valueFromAST.ts';
 // Create a JavaScript value from a GraphQL language AST without a type.
 export { valueFromASTUntyped } from './valueFromASTUntyped.ts';
 // Create a GraphQL language AST from a JavaScript value.
 export {
-  /** @deprecated use `valueToLiteral()` instead with care to operate on external values - `astFromValue()` will be removed in v18 */
+  /**
+   * Deprecated export retained for compatibility. Use `valueToLiteral()`
+   * instead, and take care to operate on external values.
+   * @deprecated use `valueToLiteral()` instead with care to operate on external values - `astFromValue()` will be removed in v18
+   */
   astFromValue,
 } from './astFromValue.ts';
 // A helper to use within recursive-descent visitors which need to be aware of the GraphQL type system.
@@ -101,6 +116,13 @@ export type {
   BreakingChange,
   DangerousChange,
   SafeChange,
+  SchemaChange,
 } from './findSchemaChanges.ts';
 // Wrapper type that contains DocumentNode and types that can be deduced from it.
 export type { TypedQueryDocumentNode } from './typedQueryDocumentNode.ts';
+// Schema coordinates
+export {
+  resolveSchemaCoordinate,
+  resolveASTSchemaCoordinate,
+} from './resolveSchemaCoordinate.ts';
+export type { ResolvedSchemaElement } from './resolveSchemaCoordinate.ts';

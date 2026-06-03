@@ -1,7 +1,10 @@
+/** @category Values */
+import { inspect } from '../jsutils/inspect.ts';
 import { invariant } from '../jsutils/invariant.ts';
 import { isIterableObject } from '../jsutils/isIterableObject.ts';
 import { isObjectLike } from '../jsutils/isObjectLike.ts';
 import type { Maybe } from '../jsutils/Maybe.ts';
+import type { ObjMap } from '../jsutils/ObjMap.ts';
 import type { ValueNode, VariableNode } from '../language/ast.ts';
 import { Kind } from '../language/kinds.ts';
 import type {
@@ -22,7 +25,34 @@ import { replaceVariables } from './replaceVariables.ts';
  * Coerces a JavaScript value given a GraphQL Input Type.
  *
  * Returns `undefined` when the value could not be validly coerced according to
- * the provided type.
+ * the provided type. Use `validateInputValue` when coercion diagnostics
+ * are needed.
+ * @param inputValue - JavaScript value to coerce.
+ * @param type - GraphQL input type to coerce the value against.
+ * @returns Coerced value, or undefined if coercion fails.
+ * @example
+ * ```ts
+ * // Coerce runtime input values, returning undefined when coercion fails.
+ * import {
+ *   GraphQLInputObjectType,
+ *   GraphQLInt,
+ *   GraphQLList,
+ *   GraphQLNonNull,
+ *   GraphQLString,
+ * } from 'graphql/type';
+ * import { coerceInputValue } from 'graphql/utilities';
+ *
+ * const ReviewInput = new GraphQLInputObjectType({
+ *   name: 'ReviewInput',
+ *   fields: {
+ *     stars: { type: new GraphQLNonNull(GraphQLInt) },
+ *     tags: { type: new GraphQLList(GraphQLString) },
+ *   },
+ * });
+ *
+ * coerceInputValue({ stars: '5', tags: ['featured'] }, ReviewInput); // => { stars: 5, tags: ['featured'] }
+ * coerceInputValue({ stars: 'bad' }, ReviewInput); // => undefined
+ * ```
  */
 export function coerceInputValue(
   inputValue: unknown,
@@ -57,16 +87,20 @@ export function coerceInputValue(
     return coercedValue;
   }
   if (isInputObjectType(type)) {
-    if (!isObjectLike(inputValue)) {
+    if (!isObjectLike(inputValue) || Array.isArray(inputValue)) {
       return; // Invalid: intentionally return no value.
     }
-    const coercedValue: any = {};
+    const coercedValue: ObjMap<unknown> = Object.create(null);
     const fieldDefs = type.getFields();
-    const hasUndefinedField = Object.keys(inputValue).some(
-      (name) => !Object.hasOwn(fieldDefs, name),
-    );
-    if (hasUndefinedField) {
-      return; // Invalid: intentionally return no value.
+    let definedFieldCount = 0;
+    for (const fieldName of Object.keys(inputValue)) {
+      if (inputValue[fieldName] === undefined) {
+        continue;
+      }
+      definedFieldCount++;
+      if (!Object.hasOwn(fieldDefs, fieldName)) {
+        return; // Invalid: intentionally return no value.
+      }
     }
     for (const field of Object.values(fieldDefs)) {
       const fieldValue = inputValue[field.name];
@@ -88,7 +122,7 @@ export function coerceInputValue(
     }
     if (type.isOneOf) {
       const keys = Object.keys(coercedValue);
-      if (keys.length !== 1) {
+      if (definedFieldCount !== 1 || keys.length !== 1) {
         return; // Invalid: intentionally return no value.
       }
       const key = keys[0];
@@ -111,6 +145,60 @@ export function coerceInputValue(
  *
  * Returns `undefined` when the value could not be validly coerced according to
  * the provided type.
+ * @param valueNode - GraphQL value AST node to coerce.
+ * @param type - GraphQL input type to coerce the literal against.
+ * @param variableValues - Operation variable values returned by getVariableValues.
+ * @param fragmentVariableValues - Fragment variable values for the current fragment scope.
+ * @returns Coerced value, or undefined if coercion fails.
+ * @example
+ * ```ts
+ * // Coerce literal input values without variables.
+ * import { parseValue } from 'graphql/language';
+ * import {
+ *   GraphQLInputObjectType,
+ *   GraphQLInt,
+ *   GraphQLNonNull,
+ *   GraphQLString,
+ * } from 'graphql/type';
+ * import { coerceInputLiteral } from 'graphql/utilities';
+ *
+ * const ReviewInput = new GraphQLInputObjectType({
+ *   name: 'ReviewInput',
+ *   fields: {
+ *     stars: { type: new GraphQLNonNull(GraphQLInt) },
+ *     comment: { type: GraphQLString },
+ *   },
+ * });
+ *
+ * coerceInputLiteral(parseValue('{ stars: 5, comment: "Loved it" }'), ReviewInput); // => { stars: 5, comment: 'Loved it' }
+ * coerceInputLiteral(parseValue('{ comment: "Missing" }'), ReviewInput); // => undefined
+ * ```
+ * @example
+ * ```ts
+ * // This variant resolves variable references using VariableValues from getVariableValues().
+ * import assert from 'node:assert';
+ * import { parse, parseValue } from 'graphql/language';
+ * import { GraphQLInt } from 'graphql/type';
+ * import { getVariableValues } from 'graphql/execution';
+ * import { buildSchema, coerceInputLiteral } from 'graphql/utilities';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     review(stars: Int): String
+ *   }
+ * `);
+ * const document = parse('query ($stars: Int = 5) { review(stars: $stars) }');
+ * const operation = document.definitions[0];
+ * const result = getVariableValues(
+ *   schema,
+ *   operation.variableDefinitions,
+ *   { stars: '4' },
+ * );
+ *
+ * assert('variableValues' in result);
+ *
+ * coerceInputLiteral(parseValue('$stars'), GraphQLInt, result.variableValues); // => 4
+ * ```
  */
 export function coerceInputLiteral(
   valueNode: ValueNode,
@@ -191,9 +279,7 @@ export function coerceInputLiteral(
     if (valueNode.kind !== Kind.OBJECT) {
       return; // Invalid: intentionally return no value.
     }
-    const coercedValue: {
-      [field: string]: unknown;
-    } = {};
+    const coercedValue: ObjMap<unknown> = Object.create(null);
     const fieldDefs = type.getFields();
     const hasUndefinedField = valueNode.fields.some(
       (field) => !Object.hasOwn(fieldDefs, field.name.value),
@@ -209,11 +295,11 @@ export function coerceInputLiteral(
       if (
         !fieldNode ||
         (fieldNode.value.kind === Kind.VARIABLE &&
-          getCoercedVariableValue(
+          isMissingVariable(
             fieldNode.value,
             variableValues,
             fragmentVariableValues,
-          ) == null)
+          ))
       ) {
         if (isRequiredInputField(field)) {
           return; // Invalid: intentionally return no value.
@@ -236,12 +322,17 @@ export function coerceInputLiteral(
       }
     }
     if (type.isOneOf) {
-      const keys = Object.keys(coercedValue);
-      if (keys.length !== 1) {
+      const coercedKeys = Object.keys(coercedValue);
+      if (fieldNodes.size !== 1 || coercedKeys.length !== 1) {
         return; // Invalid: not exactly one key, intentionally return no value.
       }
-      if (coercedValue[keys[0]] === null) {
-        return; // Invalid: value not non-null, intentionally return no value.
+      for (const [fieldName, fieldNode] of fieldNodes) {
+        if (
+          fieldNode.value.kind === Kind.NULL ||
+          coercedValue[fieldName] === null
+        ) {
+          return; // Invalid: value not non-null, intentionally return no value.
+        }
       }
     }
     return coercedValue;
@@ -269,17 +360,36 @@ function getCoercedVariableValue(
   }
   return variableValues?.coerced[varName];
 }
+function isMissingVariable(
+  variableNode: VariableNode,
+  variableValues: Maybe<VariableValues>,
+  fragmentVariableValues: Maybe<FragmentVariableValues>,
+): boolean {
+  const varName = variableNode.name.value;
+  const scopedValues =
+    fragmentVariableValues?.sources[varName] !== undefined
+      ? fragmentVariableValues.coerced
+      : variableValues?.coerced;
+  return scopedValues?.[varName] === undefined;
+}
 interface InputValue {
   type: GraphQLInputType;
   default?: GraphQLDefaultInput | undefined;
   defaultValue?: unknown;
+  /** @private */
+  _memoizedCoercedDefaultValue?: unknown;
 }
 /**
+ * Returns the coerced default value for an input value definition, if it exists.
+ *
+ * If the default value is invalid, this will throw an error. Invalid default
+ * values should be caught during validation, however, so this function assumes
+ * that the default value is valid.
  * @internal
  */
 export function coerceDefaultValue(inputValue: InputValue): unknown {
   // Memoize the result of coercing the default value in a hidden field.
-  let coercedDefaultValue = (inputValue as any)._memoizedCoercedDefaultValue;
+  let coercedDefaultValue = inputValue._memoizedCoercedDefaultValue;
   if (coercedDefaultValue !== undefined) {
     return coercedDefaultValue;
   }
@@ -288,13 +398,17 @@ export function coerceDefaultValue(inputValue: InputValue): unknown {
     coercedDefaultValue = defaultInput.literal
       ? coerceInputLiteral(defaultInput.literal, inputValue.type)
       : coerceInputValue(defaultInput.value, inputValue.type);
-    coercedDefaultValue !== undefined || invariant(false);
-    (inputValue as any)._memoizedCoercedDefaultValue = coercedDefaultValue;
+    if (!(coercedDefaultValue !== undefined))
+      invariant(
+        false,
+        `Expected value of type "${inputValue.type}" to be valid, found: ${inspect(defaultInput.literal ?? defaultInput.value)}.`,
+      );
+    inputValue._memoizedCoercedDefaultValue = coercedDefaultValue;
     return coercedDefaultValue;
   }
   const defaultValue = inputValue.defaultValue;
   if (defaultValue !== undefined) {
-    (inputValue as any)._memoizedCoercedDefaultValue = defaultValue;
+    inputValue._memoizedCoercedDefaultValue = defaultValue;
   }
   return defaultValue;
 }

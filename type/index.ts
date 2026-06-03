@@ -1,3 +1,9 @@
+/**
+ * Create and inspect GraphQL type definitions and schemas.
+ *
+ * These exports are also available from the root `graphql` package.
+ * @packageDocumentation
+ */
 export type { Path as ResponsePath } from '../jsutils/Path.ts';
 export {
   // Predicate
@@ -118,6 +124,7 @@ export type {
   GraphQLObjectTypeConfig,
   GraphQLObjectTypeExtensions,
   GraphQLResolveInfo,
+  GraphQLResolveInfoHelpers,
   GraphQLScalarTypeConfig,
   GraphQLScalarTypeExtensions,
   GraphQLTypeResolver,

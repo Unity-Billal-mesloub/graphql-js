@@ -1,8 +1,11 @@
 /**
  * ES6 Map with additional `add` method to accumulate items.
+ *
+ * @internal
  */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 export class AccumulatorMap<K, T> extends Map<K, Array<T>> {
-  override get [Symbol.toStringTag]() {
+  override get [Symbol.toStringTag](): string {
     return 'AccumulatorMap';
   }
   add(key: K, item: T): void {

@@ -1,3 +1,4 @@
+/** @category Validation Rules */
 import type { Maybe } from '../../jsutils/Maybe.ts';
 import { GraphQLError } from '../../error/GraphQLError.ts';
 import type { ValueNode, VariableDefinitionNode } from '../../language/ast.ts';
@@ -19,6 +20,33 @@ import type { ValidationContext } from '../ValidationContext.ts';
  * Variable usages must be compatible with the arguments they are passed to.
  *
  * See https://spec.graphql.org/draft/#sec-All-Variable-Usages-are-Allowed
+ * @param context - The validation context used while checking the document.
+ * @returns A visitor that reports validation errors for this rule.
+ * @example
+ * ```ts
+ * import { buildSchema, parse, validate } from 'graphql';
+ * import { VariablesInAllowedPositionRule } from 'graphql/validation';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     field(arg: ID!): String
+ *   }
+ * `);
+ *
+ * const invalidDocument = parse(`
+ *   query ($id: String) { field(arg: $id) }
+ * `);
+ * const invalidErrors = validate(schema, invalidDocument, [VariablesInAllowedPositionRule]);
+ *
+ * invalidErrors.length; // => 1
+ *
+ * const validDocument = parse(`
+ *   query ($id: ID!) { field(arg: $id) }
+ * `);
+ * const validErrors = validate(schema, validDocument, [VariablesInAllowedPositionRule]);
+ *
+ * validErrors; // => []
+ * ```
  */
 export function VariablesInAllowedPositionRule(
   context: ValidationContext,
@@ -40,9 +68,7 @@ export function VariablesInAllowedPositionRule(
         } of usages) {
           const varName = node.name.value;
           let varDef = fragmentVariableDefinition;
-          if (!varDef) {
-            varDef = varDefMap.get(varName);
-          }
+          varDef ??= varDefMap.get(varName);
           if (varDef && type) {
             // A var type is allowed if it is the same or more strict (e.g. is
             // a subtype of) than the expected type. It can be more strict if
@@ -96,6 +122,8 @@ export function VariablesInAllowedPositionRule(
  *
  * OneOf Input Object Type fields are considered separately above to
  * provide a more descriptive error message.
+ *
+ * @internal
  */
 function allowedVariableUsage(
   schema: GraphQLSchema,

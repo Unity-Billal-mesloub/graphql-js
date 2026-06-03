@@ -2,6 +2,8 @@ import type { PromiseOrValue } from './PromiseOrValue.ts';
 /**
  * Based on Promise.withResolvers proposal
  * https://github.com/tc39/proposal-promise-with-resolvers
+ *
+ * @internal
  */
 export function promiseWithResolvers<T>(): {
   promise: Promise<T>;

@@ -1,3 +1,4 @@
+/** @category Values */
 import { didYouMean } from '../jsutils/didYouMean.ts';
 import { inspect } from '../jsutils/inspect.ts';
 import { isIterableObject } from '../jsutils/isIterableObject.ts';
@@ -7,6 +8,7 @@ import type { Maybe } from '../jsutils/Maybe.ts';
 import type { Path } from '../jsutils/Path.ts';
 import { addPath, pathToArray } from '../jsutils/Path.ts';
 import { suggestionList } from '../jsutils/suggestionList.ts';
+import { ensureGraphQLError } from '../error/ensureGraphQLError.ts';
 import { GraphQLError } from '../error/GraphQLError.ts';
 import type { ASTNode, ValueNode, VariableNode } from '../language/ast.ts';
 import { Kind } from '../language/kinds.ts';
@@ -25,6 +27,60 @@ import { replaceVariables } from './replaceVariables.ts';
 /**
  * Validate that the provided input value is allowed for this type, collecting
  * all errors via a callback function.
+ * @param inputValue - JavaScript value to validate.
+ * @param type - GraphQL input type to validate the value against.
+ * @param onError - Callback invoked for each validation error and path.
+ * @param hideSuggestions - Whether suggestion text should be omitted from errors.
+ * @returns Nothing.
+ * @example
+ * ```ts
+ * // Collect validation errors with their input paths.
+ * import {
+ *   GraphQLInputObjectType,
+ *   GraphQLInt,
+ *   GraphQLNonNull,
+ * } from 'graphql/type';
+ * import { validateInputValue } from 'graphql/utilities';
+ *
+ * const ReviewInput = new GraphQLInputObjectType({
+ *   name: 'ReviewInput',
+ *   fields: {
+ *     stars: { type: new GraphQLNonNull(GraphQLInt) },
+ *   },
+ * });
+ * const errors = [];
+ *
+ * validateInputValue({ stars: 'bad' }, ReviewInput, (error, path) => {
+ *   errors.push({ message: error.message, path });
+ * });
+ *
+ * errors; // => [ { message: 'Expected value of type "Int", found: "bad".', path: ['stars'] } ]
+ * ```
+ * @example
+ * ```ts
+ * // This variant hides suggestion text for unknown input fields.
+ * import { GraphQLInputObjectType, GraphQLString } from 'graphql/type';
+ * import { validateInputValue } from 'graphql/utilities';
+ *
+ * const ReviewInput = new GraphQLInputObjectType({
+ *   name: 'ReviewInput',
+ *   fields: {
+ *     comment: { type: GraphQLString },
+ *   },
+ * });
+ * const errors = [];
+ *
+ * validateInputValue(
+ *   { rating: 'extra field' },
+ *   ReviewInput,
+ *   (error) => {
+ *     errors.push(error.message);
+ *   },
+ *   true,
+ * );
+ *
+ * errors; // => ['Expected value of type "ReviewInput" not to include unknown field "rating", found: { rating: "extra field" }.']
+ * ```
  */
 export function validateInputValue(
   inputValue: unknown,
@@ -98,7 +154,7 @@ function validateInputValueImpl(
       }
     }
   } else if (isInputObjectType(type)) {
-    if (!isObjectLike(inputValue)) {
+    if (!isObjectLike(inputValue) || Array.isArray(inputValue)) {
       reportInvalidValue(
         onError,
         `Expected value of type "${type}" to be an object, found: ${inspect(inputValue)}.`,
@@ -127,9 +183,12 @@ function validateInputValueImpl(
         );
       }
     }
-    const fields = Object.keys(inputValue);
+    const fields: Array<string> = [];
     // Ensure every provided field is defined.
-    for (const fieldName of fields) {
+    for (const fieldName of Object.keys(inputValue)) {
+      if (inputValue[fieldName] === undefined) {
+        continue;
+      }
       if (!Object.hasOwn(fieldDefs, fieldName)) {
         const suggestion = hideSuggestions
           ? ''
@@ -139,13 +198,15 @@ function validateInputValueImpl(
           `Expected value of type "${type}" not to include unknown field "${fieldName}"${suggestion ? `.${suggestion} Found` : ', found'}: ${inspect(inputValue)}.`,
           path,
         );
+        continue;
       }
+      fields.push(fieldName);
     }
     if (type.isOneOf) {
       if (fields.length !== 1) {
         reportInvalidValue(
           onError,
-          `Exactly one key must be specified for OneOf type "${type}".`,
+          getOneOfInputObjectErrorMessage(type),
           path,
         );
       }
@@ -154,15 +215,15 @@ function validateInputValueImpl(
       if (value === null) {
         reportInvalidValue(
           onError,
-          `Field "${field}" for OneOf type "${type}" must be non-null.`,
-          path,
+          getOneOfInputObjectErrorMessage(type),
+          addPath(path, field, type.name),
         );
       }
     }
   } else {
     assertLeafType(type);
     let result;
-    let caughtError;
+    let caughtError: unknown;
     try {
       result = type.coerceInputValue(inputValue, hideSuggestions);
     } catch (error) {
@@ -177,11 +238,11 @@ function validateInputValueImpl(
         onError,
         `Expected value of type "${type}"${
           caughtError != null
-            ? `, but encountered error "${caughtError.message != null && caughtError.message !== '' ? caughtError.message : caughtError}"; found`
+            ? `, but encountered error "${getCaughtErrorMessage(caughtError)}"; found`
             : ', found'
         }: ${inspect(inputValue)}.`,
         path,
-        caughtError,
+        ensureGraphQLError(caughtError),
       );
     }
   }
@@ -200,8 +261,76 @@ function reportInvalidValue(
  *
  * If variable values are not provided, the literal is validated statically
  * (not assuming that those variables are missing runtime values).
+ * @param valueNode - GraphQL value AST node to validate.
+ * @param type - GraphQL input type to validate the literal against.
+ * @param onError - Callback invoked for each validation error and path.
+ * @param variables - Operation variable values returned by getVariableValues.
+ * @param fragmentVariableValues - Fragment variable values for the current fragment scope.
+ * @param hideSuggestions - Whether suggestion text should be omitted from errors.
+ * @returns Nothing.
+ * @example
+ * ```ts
+ * // Validate literal input values and collect literal paths.
+ * import { parseValue } from 'graphql/language';
+ * import {
+ *   GraphQLInputObjectType,
+ *   GraphQLInt,
+ *   GraphQLNonNull,
+ * } from 'graphql/type';
+ * import { validateInputLiteral } from 'graphql/utilities';
+ *
+ * const ReviewInput = new GraphQLInputObjectType({
+ *   name: 'ReviewInput',
+ *   fields: {
+ *     stars: { type: new GraphQLNonNull(GraphQLInt) },
+ *   },
+ * });
+ * const errors = [];
+ *
+ * validateInputLiteral(parseValue('{ stars: "bad" }'), ReviewInput, (error, path) => {
+ *   errors.push({ message: error.message, path });
+ * });
+ *
+ * errors; // => [ { message: 'Expected value of type "Int", found: "bad".', path: ['stars'] } ]
+ * ```
+ * @example
+ * ```ts
+ * // This variant resolves variable references using VariableValues from getVariableValues().
+ * import assert from 'node:assert';
+ * import { parse, parseValue } from 'graphql/language';
+ * import { GraphQLInt } from 'graphql/type';
+ * import { getVariableValues } from 'graphql/execution';
+ * import { buildSchema, validateInputLiteral } from 'graphql/utilities';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     review(stars: Int): String
+ *   }
+ * `);
+ * const document = parse('query ($stars: Int = 5) { review(stars: $stars) }');
+ * const operation = document.definitions[0];
+ * const result = getVariableValues(
+ *   schema,
+ *   operation.variableDefinitions,
+ *   { stars: '4' },
+ * );
+ *
+ * assert('variableValues' in result);
+ *
+ * const errors = [];
+ * validateInputLiteral(
+ *   parseValue('$stars'),
+ *   GraphQLInt,
+ *   (error) => errors.push(error.message),
+ *   result.variableValues,
+ *   undefined,
+ *   true,
+ * );
+ *
+ * errors; // => []
+ * ```
  */
-// eslint-disable-next-line @typescript-eslint/max-params
+// eslint-disable-next-line max-params
 export function validateInputLiteral(
   valueNode: ValueNode,
   type: GraphQLInputType,
@@ -371,6 +500,7 @@ function validateInputLiteralImpl(
       }
     }
     const fields = valueNode.fields;
+    const knownFields: Array<(typeof fields)[number]> = [];
     // Ensure every provided field is defined.
     for (const fieldNode of fields) {
       const fieldName = fieldNode.name.value;
@@ -384,25 +514,27 @@ function validateInputLiteralImpl(
           fieldNode,
           path,
         );
+      } else {
+        knownFields.push(fieldNode);
       }
     }
     if (type.isOneOf) {
-      const isNotExactlyOneField = fields.length !== 1;
+      const isNotExactlyOneField = knownFields.length !== 1;
       if (isNotExactlyOneField) {
         reportInvalidLiteral(
           context.onError,
-          `OneOf Input Object "${type}" must specify exactly one key.`,
+          getOneOfInputObjectErrorMessage(type),
           valueNode,
           path,
         );
         return;
       }
-      const fieldValueNode = fields[0].value;
+      const fieldValueNode = knownFields[0].value;
       if (fieldValueNode.kind === Kind.NULL) {
-        const fieldName = fields[0].name.value;
+        const fieldName = knownFields[0].name.value;
         reportInvalidLiteral(
           context.onError,
-          `Field "${type}.${fieldName}" used for OneOf Input Object must be non-null.`,
+          getOneOfInputObjectErrorMessage(type),
           valueNode,
           addPath(path, fieldName, undefined),
         );
@@ -411,7 +543,7 @@ function validateInputLiteralImpl(
   } else {
     assertLeafType(type);
     let result;
-    let caughtError;
+    let caughtError: unknown;
     try {
       result = type.coerceInputLiteral
         ? type.coerceInputLiteral(
@@ -435,12 +567,12 @@ function validateInputLiteralImpl(
         context.onError,
         `Expected value of type "${type}"${
           caughtError != null
-            ? `, but encountered error "${caughtError.message != null && caughtError.message !== '' ? caughtError.message : caughtError}"; found`
+            ? `, but encountered error "${getCaughtErrorMessage(caughtError)}"; found`
             : ', found'
         }: ${print(valueNode)}.`,
         valueNode,
         path,
-        caughtError,
+        ensureGraphQLError(caughtError),
       );
     }
   }
@@ -463,7 +595,22 @@ function reportInvalidLiteral(
   originalError?: GraphQLError,
 ): void {
   onError(
-    new GraphQLError(message, { nodes: valueNode, originalError }),
+    new GraphQLError(message, {
+      nodes: valueNode,
+      originalError,
+    }),
     pathToArray(path),
   );
+}
+function getCaughtErrorMessage(caughtError: unknown): string {
+  if (isObjectLike(caughtError)) {
+    const message = caughtError.message;
+    if (typeof message === 'string' && message !== '') {
+      return message;
+    }
+  }
+  return String(caughtError);
+}
+function getOneOfInputObjectErrorMessage(type: GraphQLInputType): string {
+  return `Within OneOf Input Object type "${type}", exactly one field must be specified, and the value for that field must be non-null.`;
 }

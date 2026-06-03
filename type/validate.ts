@@ -1,3 +1,4 @@
+/** @category Validation */
 import { AccumulatorMap } from '../jsutils/AccumulatorMap.ts';
 import { capitalize } from '../jsutils/capitalize.ts';
 import { andList } from '../jsutils/formatList.ts';
@@ -32,6 +33,7 @@ import {
 } from '../utilities/validateInputValue.ts';
 import type {
   GraphQLArgument,
+  GraphQLDefaultInput,
   GraphQLEnumType,
   GraphQLInputField,
   GraphQLInputObjectType,
@@ -66,6 +68,22 @@ import { assertSchema } from './schema.ts';
  *
  * Validation runs synchronously, returning an array of encountered errors, or
  * an empty array if no errors were encountered and the Schema is valid.
+ * @param schema - GraphQL schema to use.
+ * @returns Schema validation errors, or an empty array when the schema is valid.
+ * @example
+ * ```ts
+ * import { validateSchema } from 'graphql/type';
+ * import { buildSchema } from 'graphql/utilities';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     name: String
+ *   }
+ * `);
+ * const errors = validateSchema(schema);
+ *
+ * errors; // => []
+ * ```
  */
 export function validateSchema(
   schema: GraphQLSchema,
@@ -90,6 +108,20 @@ export function validateSchema(
 /**
  * Utility function which asserts a schema is valid by throwing an error if
  * it is invalid.
+ * @param schema - GraphQL schema to use.
+ * @example
+ * ```ts
+ * import { assertValidSchema } from 'graphql/type';
+ * import { buildSchema } from 'graphql/utilities';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     name: String
+ *   }
+ * `);
+ *
+ * assertValidSchema(schema); // does not throw
+ * ```
  */
 export function assertValidSchema(schema: GraphQLSchema): void {
   const errors = validateSchema(schema);
@@ -212,54 +244,64 @@ function validateDefaultValue(
   if (!defaultInput) {
     return;
   }
-  if (defaultInput.literal) {
-    validateInputLiteral(
-      defaultInput.literal,
-      inputValue.type,
-      (error, path) => {
-        context.reportError(
-          `${inputValue} has invalid default value${printPathArray(path)}: ${error.message}`,
-          error.nodes,
-        );
-      },
-    );
-  } else {
-    const errors: Array<[GraphQLError, ReadonlyArray<string | number>]> = [];
-    validateInputValue(defaultInput.value, inputValue.type, (error, path) => {
-      errors.push([error, path]);
-    });
+  const errors: Array<[GraphQLError, ReadonlyArray<string | number>]> = [];
+  validateDefaultInput(defaultInput, inputValue.type, (error, path) => {
+    errors.push([error, path]);
+  });
+  if (errors.length === 0) {
+    return;
+  }
+  if (!defaultInput.literal) {
     // If there were validation errors, check to see if it can be "uncoerced"
     // and then correctly validated. If so, report a clear error with a path
     // to resolution.
-    if (errors.length > 0) {
-      try {
-        const uncoercedValue = uncoerceDefaultValue(
-          defaultInput.value,
-          inputValue.type,
-        );
-        const uncoercedErrors = [];
-        validateInputValue(uncoercedValue, inputValue.type, (error, path) => {
-          uncoercedErrors.push([error, path]);
-        });
-        if (uncoercedErrors.length === 0) {
-          context.reportError(
-            `${inputValue} has invalid default value: ${inspect(defaultInput.value)}. Did you mean: ${inspect(uncoercedValue)}?`,
-            inputValue.astNode?.defaultValue,
-          );
-          return;
-        }
-      } catch (_error) {
-        // ignore
-      }
-    }
-    // Otherwise report the original set of errors.
-    for (const [error, path] of errors) {
-      context.reportError(
-        `${inputValue} has invalid default value${printPathArray(path)}: ${error.message}`,
-        inputValue.astNode?.defaultValue,
+    try {
+      const uncoercedValue = uncoerceDefaultValue(
+        defaultInput.value,
+        inputValue.type,
       );
+      const uncoercedErrors = [];
+      validateInputValue(uncoercedValue, inputValue.type, (error, path) => {
+        uncoercedErrors.push([error, path]);
+      });
+      if (uncoercedErrors.length === 0) {
+        context.reportError(
+          `${inputValue} has invalid default value: ${inspect(defaultInput.value)}. Did you mean: ${inspect(uncoercedValue)}?`,
+          inputValue.astNode?.defaultValue,
+        );
+        return;
+      }
+    } catch (_error) {
+      // ignore
     }
   }
+  // Otherwise report the original set of errors.
+  for (const [error, path] of errors) {
+    context.reportError(
+      `${inputValue} has invalid default value${printPathArray(path)}: ${error.message}`,
+      error.nodes ?? inputValue.astNode?.defaultValue,
+    );
+  }
+}
+/** @internal */
+export function validateDefaultInput(
+  defaultInput: GraphQLDefaultInput,
+  inputType: GraphQLInputType,
+  onError: (error: GraphQLError, path: ReadonlyArray<string | number>) => void,
+  hideSuggestions?: Maybe<boolean>,
+): void {
+  if (defaultInput.literal) {
+    validateInputLiteral(
+      defaultInput.literal,
+      inputType,
+      onError,
+      undefined,
+      undefined,
+      hideSuggestions,
+    );
+    return;
+  }
+  validateInputValue(defaultInput.value, inputType, onError, hideSuggestions);
 }
 /**
  * Historically GraphQL.js allowed default values to be provided as
@@ -269,6 +311,8 @@ function validateDefaultValue(
  *
  * This performs the "opposite" of `coerceInputValue()`. Given an "internal"
  * coerced value, reverse the process to provide an "external" uncoerced value.
+ *
+ * @internal
  */
 function uncoerceDefaultValue(value: unknown, type: GraphQLInputType): unknown {
   if (isNonNullType(type)) {
@@ -286,10 +330,10 @@ function uncoerceDefaultValue(value: unknown, type: GraphQLInputType): unknown {
     return [uncoerceDefaultValue(value, type.ofType)];
   }
   if (isInputObjectType(type)) {
-    isObjectLike(value) || invariant(false);
+    if (!isObjectLike(value)) invariant(false);
     const fieldDefs = type.getFields();
     return mapValue(value, (fieldValue, fieldName) => {
-      fieldName in fieldDefs || invariant(false);
+      if (!(fieldName in fieldDefs)) invariant(false);
       return uncoerceDefaultValue(fieldValue, fieldDefs[fieldName].type);
     });
   }
@@ -714,7 +758,7 @@ function createInputObjectDefaultValueCircularRefsValidator(
   ): void {
     // Start with an empty object as a way to visit every field in this input
     // object type and apply every default value.
-    return detectValueDefaultValueCycle(inputObj, {});
+    return detectValueDefaultValueCycle(inputObj, Object.create(null));
   };
   function detectValueDefaultValueCycle(
     inputObj: GraphQLInputObjectType,
@@ -802,7 +846,7 @@ function createInputObjectDefaultValueCircularRefsValidator(
     }
     // Check to see if there is cycle.
     const cycleIndex = fieldPathIndex[fieldStr];
-    if (cycleIndex !== undefined && cycleIndex > 0) {
+    if (cycleIndex !== undefined) {
       context.reportError(
         `Invalid circular reference. The default value of Input Object field ${fieldStr} references itself${
           cycleIndex < fieldPath.length
@@ -856,7 +900,7 @@ function getUnionMemberTypeNodes(
   const nodes: ReadonlyArray<UnionTypeDefinitionNode | UnionTypeExtensionNode> =
     astNode != null ? [astNode, ...extensionASTNodes] : extensionASTNodes;
   return nodes
-    .flatMap((unionNode) => /* c8 ignore next */ unionNode.types ?? [])
+    .flatMap((unionNode) => unionNode.types ?? [])
     .filter((typeNode) => typeNode.name.value === typeName);
 }
 function getDeprecatedDirectiveNode(

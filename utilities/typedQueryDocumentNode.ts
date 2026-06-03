@@ -1,9 +1,12 @@
+/** @category Typed Documents */
 import type {
   DocumentNode,
   ExecutableDefinitionNode,
 } from '../language/ast.ts';
 /**
  * Wrapper type that contains DocumentNode and types that can be deduced from it.
+ * @typeParam TResponseData - Typed GraphQL response data shape.
+ * @typeParam TRequestVariables - Typed GraphQL request variables shape.
  */
 export interface TypedQueryDocumentNode<
   TResponseData = {
@@ -13,6 +16,7 @@ export interface TypedQueryDocumentNode<
     [key: string]: any;
   },
 > extends DocumentNode {
+  /** Top-level executable and type-system definitions in this document. */
   readonly definitions: ReadonlyArray<ExecutableDefinitionNode>;
   // FIXME: remove once TS implements proper way to enforce nominal typing
   /**

@@ -5,6 +5,7 @@ import type {
   ReadOnlyObjMapSymbolLike,
   ReadOnlyObjMapWithSymbol,
 } from './ObjMap.ts';
+/** @internal */
 export function toObjMap<T>(
   obj: Maybe<ReadOnlyObjMapLike<T>>,
 ): ReadOnlyObjMap<T> {
@@ -20,6 +21,7 @@ export function toObjMap<T>(
   }
   return map;
 }
+/** @internal */
 export function toObjMapWithSymbols<T>(
   obj: Maybe<ReadOnlyObjMapSymbolLike<T>>,
 ): ReadOnlyObjMapWithSymbol<T> {

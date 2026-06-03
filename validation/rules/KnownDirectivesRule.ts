@@ -1,3 +1,4 @@
+/** @category Validation Rules */
 import { inspect } from '../../jsutils/inspect.ts';
 import { invariant } from '../../jsutils/invariant.ts';
 import { GraphQLError } from '../../error/GraphQLError.ts';
@@ -18,6 +19,33 @@ import type {
  * schema and legally positioned.
  *
  * See https://spec.graphql.org/draft/#sec-Directives-Are-Defined
+ * @param context - The validation context used while checking the document.
+ * @returns A visitor that reports validation errors for this rule.
+ * @example
+ * ```ts
+ * import { buildSchema, parse, validate } from 'graphql';
+ * import { KnownDirectivesRule } from 'graphql/validation';
+ *
+ * const schema = buildSchema(`
+ *   type Query {
+ *     name: String
+ *   }
+ * `);
+ *
+ * const invalidDocument = parse(`
+ *   { name @unknown }
+ * `);
+ * const invalidErrors = validate(schema, invalidDocument, [KnownDirectivesRule]);
+ *
+ * invalidErrors.length; // => 1
+ *
+ * const validDocument = parse(`
+ *   { name @include(if: true) }
+ * `);
+ * const validErrors = validate(schema, validDocument, [KnownDirectivesRule]);
+ *
+ * validErrors; // => []
+ * ```
  */
 export function KnownDirectivesRule(
   context: ValidationContext | SDLValidationContext,
@@ -65,7 +93,7 @@ function getDirectiveLocationForASTPath(
   ancestors: ReadonlyArray<ASTNode | ReadonlyArray<ASTNode>>,
 ): DirectiveLocation | undefined {
   const appliedTo = ancestors.at(-1);
-  (appliedTo != null && 'kind' in appliedTo) || invariant(false);
+  if (!(appliedTo != null && 'kind' in appliedTo)) invariant(false);
   switch (appliedTo.kind) {
     case Kind.OPERATION_DEFINITION:
       return getDirectiveLocationForOperation(appliedTo.operation);
@@ -79,7 +107,7 @@ function getDirectiveLocationForASTPath(
       return DirectiveLocation.FRAGMENT_DEFINITION;
     case Kind.VARIABLE_DEFINITION: {
       const parentNode = ancestors[ancestors.length - 3];
-      'kind' in parentNode || invariant(false);
+      if (!('kind' in parentNode)) invariant(false);
       return parentNode.kind === Kind.OPERATION_DEFINITION
         ? DirectiveLocation.VARIABLE_DEFINITION
         : DirectiveLocation.FRAGMENT_VARIABLE_DEFINITION;
@@ -111,15 +139,18 @@ function getDirectiveLocationForASTPath(
       return DirectiveLocation.INPUT_OBJECT;
     case Kind.INPUT_VALUE_DEFINITION: {
       const parentNode = ancestors.at(-3);
-      (parentNode != null && 'kind' in parentNode) || invariant(false);
+      if (!(parentNode != null && 'kind' in parentNode)) invariant(false);
       return parentNode.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION
         ? DirectiveLocation.INPUT_FIELD_DEFINITION
         : DirectiveLocation.ARGUMENT_DEFINITION;
     }
+    case Kind.DIRECTIVE_DEFINITION:
+    case Kind.DIRECTIVE_EXTENSION:
+      return DirectiveLocation.DIRECTIVE_DEFINITION;
     // Not reachable, all possible types have been considered.
-    /* c8 ignore next 2 */
+    /* node:coverage ignore next 2 */
     default:
-      false || invariant(false, 'Unexpected kind: ' + inspect(appliedTo.kind));
+      invariant(false, 'Unexpected kind: ' + inspect(appliedTo.kind));
   }
 }
 function getDirectiveLocationForOperation(

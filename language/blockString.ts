@@ -40,9 +40,7 @@ function leadingWhitespace(str: string): number {
   }
   return i;
 }
-/**
- * @internal
- */
+/** @internal */
 export function isPrintableAsBlockString(value: string): boolean {
   if (value === '') {
     return true; // empty string is printable

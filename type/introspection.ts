@@ -1,3 +1,4 @@
+/** @category Introspection */
 import { inspect } from '../jsutils/inspect.ts';
 import { invariant } from '../jsutils/invariant.ts';
 import { DirectiveLocation } from '../language/directiveLocation.ts';
@@ -29,6 +30,7 @@ import {
 import type { GraphQLDirective } from './directives.ts';
 import { GraphQLBoolean, GraphQLString } from './scalars.ts';
 import type { GraphQLSchema } from './schema.ts';
+/** The introspection type describing a GraphQL schema. */
 export const __Schema: GraphQLObjectType = new GraphQLObjectType({
   name: '__Schema',
   description:
@@ -68,10 +70,22 @@ export const __Schema: GraphQLObjectType = new GraphQLObjectType({
         type: new GraphQLNonNull(
           new GraphQLList(new GraphQLNonNull(__Directive)),
         ),
-        resolve: (schema) => schema.getDirectives(),
+        args: {
+          includeDeprecated: {
+            type: new GraphQLNonNull(GraphQLBoolean),
+            default: { value: false },
+          },
+        },
+        resolve: (schema, { includeDeprecated }) =>
+          includeDeprecated === true
+            ? schema.getDirectives()
+            : schema
+                .getDirectives()
+                .filter((directive) => directive.deprecationReason == null),
       },
     }) as GraphQLFieldConfigMap<GraphQLSchema, unknown>,
 });
+/** The introspection type describing a GraphQL directive. */
 export const __Directive: GraphQLObjectType = new GraphQLObjectType({
   name: '__Directive',
   description:
@@ -112,8 +126,17 @@ export const __Directive: GraphQLObjectType = new GraphQLObjectType({
             : field.args.filter((arg) => arg.deprecationReason == null);
         },
       },
+      isDeprecated: {
+        type: new GraphQLNonNull(GraphQLBoolean),
+        resolve: (directive) => directive.deprecationReason != null,
+      },
+      deprecationReason: {
+        type: GraphQLString,
+        resolve: (directive) => directive.deprecationReason,
+      },
     }) as GraphQLFieldConfigMap<GraphQLDirective, unknown>,
 });
+/** The introspection enum describing directive locations. */
 export const __DirectiveLocation: GraphQLEnumType = new GraphQLEnumType({
   name: '__DirectiveLocation',
   description:
@@ -199,8 +222,13 @@ export const __DirectiveLocation: GraphQLEnumType = new GraphQLEnumType({
       value: DirectiveLocation.INPUT_FIELD_DEFINITION,
       description: 'Location adjacent to an input object field definition.',
     },
+    DIRECTIVE_DEFINITION: {
+      value: DirectiveLocation.DIRECTIVE_DEFINITION,
+      description: 'Location adjacent to a directive definition.',
+    },
   },
 });
+/** The introspection type describing GraphQL types. */
 export const __Type: GraphQLObjectType = new GraphQLObjectType({
   name: '__Type',
   description:
@@ -233,10 +261,10 @@ export const __Type: GraphQLObjectType = new GraphQLObjectType({
           }
           if (isNonNullType(type)) {
             return TypeKind.NON_NULL;
+            /* node:coverage ignore next 4 */
           }
-          /* c8 ignore next 3 */
           // Not reachable, all possible types have been considered)
-          false || invariant(false, `Unexpected type: "${inspect(type)}".`);
+          invariant(false, `Unexpected type: "${inspect(type)}".`);
         },
       },
       name: {
@@ -247,7 +275,7 @@ export const __Type: GraphQLObjectType = new GraphQLObjectType({
         type: GraphQLString,
         resolve: (type) =>
           // FIXME: add test case
-          /* c8 ignore next */
+          /* node:coverage ignore next */
           'description' in type ? type.description : undefined,
       },
       specifiedByURL: {
@@ -336,6 +364,7 @@ export const __Type: GraphQLObjectType = new GraphQLObjectType({
       },
     }) as GraphQLFieldConfigMap<GraphQLType, unknown>,
 });
+/** The introspection type describing object and interface fields. */
 export const __Field: GraphQLObjectType = new GraphQLObjectType({
   name: '__Field',
   description:
@@ -380,6 +409,7 @@ export const __Field: GraphQLObjectType = new GraphQLObjectType({
       },
     }) as GraphQLFieldConfigMap<GraphQLField<unknown, unknown>, unknown>,
 });
+/** The introspection type describing arguments and input fields. */
 export const __InputValue: GraphQLObjectType = new GraphQLObjectType({
   name: '__InputValue',
   description:
@@ -420,6 +450,7 @@ export const __InputValue: GraphQLObjectType = new GraphQLObjectType({
       },
     }) as GraphQLFieldConfigMap<GraphQLInputField, unknown>,
 });
+/** The introspection type describing enum values. */
 export const __EnumValue: GraphQLObjectType = new GraphQLObjectType({
   name: '__EnumValue',
   description:
@@ -444,6 +475,10 @@ export const __EnumValue: GraphQLObjectType = new GraphQLObjectType({
       },
     }) as GraphQLFieldConfigMap<GraphQLEnumValue, unknown>,
 });
+/**
+ * The introspection enum describing the different kinds of GraphQL types.
+ * @category Introspection
+ */
 export const TypeKind = {
   SCALAR: 'SCALAR' as const,
   OBJECT: 'OBJECT' as const,
@@ -454,8 +489,13 @@ export const TypeKind = {
   LIST: 'LIST' as const,
   NON_NULL: 'NON_NULL' as const,
 } as const;
+/**
+ * The introspection enum describing the different kinds of GraphQL types.
+ * @category Introspection
+ */
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export type TypeKind = (typeof TypeKind)[keyof typeof TypeKind];
+/** The introspection enum describing GraphQL type kinds. */
 export const __TypeKind: GraphQLEnumType = new GraphQLEnumType({
   name: '__TypeKind',
   description: 'An enum describing what kind of type a given `__Type` is.',
@@ -500,22 +540,32 @@ export const __TypeKind: GraphQLEnumType = new GraphQLEnumType({
     },
   },
 });
-export const SchemaMetaFieldDef = new GraphQLField(undefined, '__schema', {
-  type: new GraphQLNonNull(__Schema),
-  description: 'Access the current type schema of this server.',
-  resolve: (_source, _args, _context, { schema }) => schema,
-});
-export const TypeMetaFieldDef = new GraphQLField(undefined, '__type', {
-  type: __Type,
-  description: 'Request the type information of a single type.',
-  args: { name: { type: new GraphQLNonNull(GraphQLString) } },
-  resolve: (_source, { name }, _context, { schema }) => schema.getType(name),
-});
-export const TypeNameMetaFieldDef = new GraphQLField(undefined, '__typename', {
-  type: new GraphQLNonNull(GraphQLString),
-  description: 'The name of the current Object type at runtime.',
-  resolve: (_source, _args, _context, { parentType }) => parentType.name,
-});
+/**
+ * Note that these are GraphQLField and not GraphQLFieldConfig,
+ * so the format for args is different.
+ */
+export const SchemaMetaFieldDef: GraphQLField<unknown, unknown> =
+  new GraphQLField<unknown, unknown>(undefined, '__schema', {
+    type: new GraphQLNonNull(__Schema),
+    description: 'Access the current type schema of this server.',
+    resolve: (_source, _args, _context, { schema }) => schema,
+  });
+/** The `__type` meta field definition used by introspection. */
+export const TypeMetaFieldDef: GraphQLField<unknown, unknown> =
+  new GraphQLField<unknown, unknown>(undefined, '__type', {
+    type: __Type,
+    description: 'Request the type information of a single type.',
+    args: { name: { type: new GraphQLNonNull(GraphQLString) } },
+    resolve: (_source, { name }, _context, { schema }) => schema.getType(name),
+  });
+/** The `__typename` meta field definition used by execution and introspection. */
+export const TypeNameMetaFieldDef: GraphQLField<unknown, unknown> =
+  new GraphQLField<unknown, unknown>(undefined, '__typename', {
+    type: new GraphQLNonNull(GraphQLString),
+    description: 'The name of the current Object type at runtime.',
+    resolve: (_source, _args, _context, { parentType }) => parentType.name,
+  });
+/** All introspection types defined by the GraphQL specification. */
 export const introspectionTypes: ReadonlyArray<GraphQLNamedType> =
   Object.freeze([
     __Schema,
@@ -527,6 +577,18 @@ export const introspectionTypes: ReadonlyArray<GraphQLNamedType> =
     __EnumValue,
     __TypeKind,
   ]);
+/**
+ * Returns true when the type is one of the built-in introspection types.
+ * @param type - The GraphQL type to inspect.
+ * @returns True when the type is one of the built-in introspection types.
+ * @example
+ * ```ts
+ * import { GraphQLString, isIntrospectionType, __Type } from 'graphql/type';
+ *
+ * isIntrospectionType(__Type); // => true
+ * isIntrospectionType(GraphQLString); // => false
+ * ```
+ */
 export function isIntrospectionType(type: GraphQLNamedType): boolean {
   return introspectionTypes.some(({ name }) => type.name === name);
 }
