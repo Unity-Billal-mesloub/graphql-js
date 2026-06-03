@@ -1,11 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DirectiveLocation = void 0;
-/**
- * The set of allowed directive location values.
- */
 exports.DirectiveLocation = {
-    /** Request Definitions */
     QUERY: 'QUERY',
     MUTATION: 'MUTATION',
     SUBSCRIPTION: 'SUBSCRIPTION',
@@ -14,7 +10,7 @@ exports.DirectiveLocation = {
     FRAGMENT_SPREAD: 'FRAGMENT_SPREAD',
     INLINE_FRAGMENT: 'INLINE_FRAGMENT',
     VARIABLE_DEFINITION: 'VARIABLE_DEFINITION',
-    /** Type System Definitions */
+    FRAGMENT_VARIABLE_DEFINITION: 'FRAGMENT_VARIABLE_DEFINITION',
     SCHEMA: 'SCHEMA',
     SCALAR: 'SCALAR',
     OBJECT: 'OBJECT',
@@ -26,6 +22,6 @@ exports.DirectiveLocation = {
     ENUM_VALUE: 'ENUM_VALUE',
     INPUT_OBJECT: 'INPUT_OBJECT',
     INPUT_FIELD_DEFINITION: 'INPUT_FIELD_DEFINITION',
-    FRAGMENT_VARIABLE_DEFINITION: 'FRAGMENT_VARIABLE_DEFINITION',
+    DIRECTIVE_DEFINITION: 'DIRECTIVE_DEFINITION',
 };
 //# sourceMappingURL=directiveLocation.js.map

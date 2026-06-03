@@ -1,13 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.naturalCompare = naturalCompare;
-/**
- * Returns a number indicating whether a reference string comes before, or after,
- * or is the same as the given string in natural sort order.
- *
- * See: https://en.wikipedia.org/wiki/Natural_sort_order
- *
- */
 function naturalCompare(aStr, bStr) {
     let aIndex = 0;
     let bIndex = 0;

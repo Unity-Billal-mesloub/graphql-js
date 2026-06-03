@@ -1,12 +1,6 @@
 import { inspect } from "../../jsutils/inspect.mjs";
 import { GraphQLError } from "../../error/GraphQLError.mjs";
 import { getNamedType, isLeafType } from "../../type/definition.mjs";
-/**
- * Scalar leafs
- *
- * A GraphQL document is valid only if all leaf fields (fields without
- * sub selections) are of scalar or enum types.
- */
 export function ScalarLeafsRule(context) {
     return {
         Field(node) {

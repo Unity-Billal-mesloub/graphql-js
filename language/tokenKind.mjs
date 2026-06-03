@@ -1,7 +1,3 @@
-/**
- * An exported enum describing the different kinds of tokens that the
- * lexer emits.
- */
 export const TokenKind = {
     SOF: '<SOF>',
     EOF: '<EOF>',
@@ -10,6 +6,7 @@ export const TokenKind = {
     AMP: '&',
     PAREN_L: '(',
     PAREN_R: ')',
+    DOT: '.',
     SPREAD: '...',
     COLON: ':',
     EQUALS: '=',

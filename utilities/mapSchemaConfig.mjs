@@ -4,9 +4,6 @@ import { GraphQLEnumType, GraphQLInputObjectType, GraphQLInterfaceType, GraphQLL
 import { GraphQLDirective, isSpecifiedDirective } from "../type/directives.mjs";
 import { introspectionTypes, isIntrospectionType, } from "../type/introspection.mjs";
 import { isSpecifiedScalarType, specifiedScalarTypes, } from "../type/scalars.mjs";
-/**
- * The set of GraphQL Schema Elements.
- */
 export const SchemaElementKind = {
     SCHEMA: 'SCHEMA',
     SCALAR: 'SCALAR',
@@ -21,9 +18,6 @@ export const SchemaElementKind = {
     INPUT_FIELD: 'INPUT_FIELD',
     DIRECTIVE: 'DIRECTIVE',
 };
-/**
- * @internal
- */
 export function mapSchemaConfig(schemaConfig, configMapperMapFn) {
     const configMapperMap = configMapperMapFn({
         getNamedType,
@@ -41,7 +35,6 @@ export function mapSchemaConfig(schemaConfig, configMapperMapFn) {
     const mappedDirectives = [];
     for (const directive of schemaConfig.directives) {
         if (isSpecifiedDirective(directive)) {
-            // Builtin directives cannot be mapped.
             mappedDirectives.push(directive);
             continue;
         }
@@ -76,7 +69,8 @@ export function mapSchemaConfig(schemaConfig, configMapperMapFn) {
     }
     function getNamedType(typeName) {
         const type = stdTypeMap.get(typeName) ?? mappedTypeMap.get(typeName);
-        (type !== undefined) || invariant(false, `Unknown type: "${typeName}".`);
+        if (!(type !== undefined))
+            invariant(false, `Unknown type: "${typeName}".`);
         return type;
     }
     function setNamedType(type) {
@@ -87,7 +81,6 @@ export function mapSchemaConfig(schemaConfig, configMapperMapFn) {
     }
     function mapNamedType(type) {
         if (isIntrospectionType(type) || isSpecifiedScalarType(type)) {
-            // Builtin types cannot be mapped.
             return type;
         }
         if (isScalarType(type)) {
@@ -108,9 +101,7 @@ export function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         if (isInputObjectType(type)) {
             return mapInputObjectType(type);
         }
-        /* c8 ignore next 3 */
-        // Not reachable, all possible type definition nodes have been considered.
-        (false) || invariant(false, 'Unexpected type: ' + inspect(type));
+        invariant(false, 'Unexpected type: ' + inspect(type));
     }
     function mapScalarType(type) {
         let mappedConfig = type.toConfig();

@@ -46,24 +46,10 @@ export const SafeChangeType = {
     ARG_CHANGED_KIND_SAFE: 'ARG_CHANGED_KIND_SAFE',
     ARG_DEFAULT_VALUE_ADDED: 'ARG_DEFAULT_VALUE_ADDED',
 };
-/**
- * Given two schemas, returns an Array containing descriptions of all the types
- * of breaking changes covered by the other functions down below.
- *
- * @deprecated Please use `findSchemaChanges` instead. Will be removed in v18.
- */
 export function findBreakingChanges(oldSchema, newSchema) {
-    // @ts-expect-error
     return findSchemaChanges(oldSchema, newSchema).filter((change) => change.type in BreakingChangeType);
 }
-/**
- * Given two schemas, returns an Array containing descriptions of all the types
- * of potentially dangerous changes covered by the other functions down below.
- *
- * @deprecated Please use `findSchemaChanges` instead. Will be removed in v18.
- */
 export function findDangerousChanges(oldSchema, newSchema) {
-    // @ts-expect-error
     return findSchemaChanges(oldSchema, newSchema).filter((change) => change.type in DangerousChangeType);
 }
 export function findSchemaChanges(oldSchema, newSchema) {
@@ -458,43 +444,30 @@ function findArgChanges(oldField, newField) {
 }
 function isChangeSafeForObjectOrInterfaceField(oldType, newType) {
     if (isListType(oldType)) {
-        return (
-        // if they're both lists, make sure the underlying types are compatible
-        (isListType(newType) &&
+        return ((isListType(newType) &&
             isChangeSafeForObjectOrInterfaceField(oldType.ofType, newType.ofType)) ||
-            // moving from nullable to non-null of the same underlying type is safe
             (isNonNullType(newType) &&
                 isChangeSafeForObjectOrInterfaceField(oldType, newType.ofType)));
     }
     if (isNonNullType(oldType)) {
-        // if they're both non-null, make sure the underlying types are compatible
         return (isNonNullType(newType) &&
             isChangeSafeForObjectOrInterfaceField(oldType.ofType, newType.ofType));
     }
-    return (
-    // if they're both named types, see if their names are equivalent
-    (isNamedType(newType) && oldType.name === newType.name) ||
-        // moving from nullable to non-null of the same underlying type is safe
+    return ((isNamedType(newType) && oldType.name === newType.name) ||
         (isNonNullType(newType) &&
             isChangeSafeForObjectOrInterfaceField(oldType, newType.ofType)));
 }
 function isChangeSafeForInputObjectFieldOrFieldArg(oldType, newType) {
     if (isListType(oldType)) {
-        // if they're both lists, make sure the underlying types are compatible
         return (isListType(newType) &&
             isChangeSafeForInputObjectFieldOrFieldArg(oldType.ofType, newType.ofType));
     }
     if (isNonNullType(oldType)) {
-        return (
-        // if they're both non-null, make sure the underlying types are
-        // compatible
-        (isNonNullType(newType) &&
+        return ((isNonNullType(newType) &&
             isChangeSafeForInputObjectFieldOrFieldArg(oldType.ofType, newType.ofType)) ||
-            // moving from non-null to nullable of the same underlying type is safe
             (!isNonNullType(newType) &&
                 isChangeSafeForInputObjectFieldOrFieldArg(oldType.ofType, newType)));
     }
-    // if they're both named types, see if their names are equivalent
     return isNamedType(newType) && oldType.name === newType.name;
 }
 function typeKindName(type) {
@@ -516,13 +489,8 @@ function typeKindName(type) {
     if (isInputObjectType(type)) {
         return 'an Input type';
     }
-    /* c8 ignore next 3 */
-    // Not reachable, all possible types have been considered.
-    (false) || invariant(false, 'Unexpected type: ' + inspect(type));
+    invariant(false, 'Unexpected type: ' + inspect(type));
 }
-// Since we looking only for client's observable changes we should
-// compare default values in the same representation as they are
-// represented inside introspection.
 function getDefaultValue(argOrInputField) {
     const ast = getDefaultValueAST(argOrInputField);
     if (ast) {

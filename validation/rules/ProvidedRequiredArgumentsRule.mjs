@@ -5,18 +5,10 @@ import { print } from "../../language/printer.mjs";
 import { isRequiredArgument, isType } from "../../type/definition.mjs";
 import { specifiedDirectives } from "../../type/directives.mjs";
 import { typeFromAST } from "../../utilities/typeFromAST.mjs";
-/**
- * Provided required arguments
- *
- * A field or directive is only valid if all required (non-null without a
- * default value) field arguments have been provided.
- */
 export function ProvidedRequiredArgumentsRule(context) {
     return {
-        // eslint-disable-next-line new-cap
         ...ProvidedRequiredArgumentsOnDirectivesRule(context),
         Field: {
-            // Validate on leave to allow for deeper errors to appear first.
             leave(fieldNode) {
                 const fieldDef = context.getFieldDef();
                 if (!fieldDef) {
@@ -31,7 +23,6 @@ export function ProvidedRequiredArgumentsRule(context) {
             },
         },
         FragmentSpread: {
-            // Validate on leave to allow for deeper errors to appear first.
             leave(spreadNode) {
                 const fragmentSignature = context.getFragmentSignature();
                 if (!fragmentSignature) {
@@ -50,9 +41,6 @@ export function ProvidedRequiredArgumentsRule(context) {
         },
     };
 }
-/**
- * @internal
- */
 export function ProvidedRequiredArgumentsOnDirectivesRule(context) {
     const requiredArgsMap = new Map();
     const schema = context.getSchema();
@@ -71,7 +59,6 @@ export function ProvidedRequiredArgumentsOnDirectivesRule(context) {
     }
     return {
         Directive: {
-            // Validate on leave to allow for deeper errors to appear first.
             leave(directiveNode) {
                 const directiveName = directiveNode.name.value;
                 const requiredArgs = requiredArgsMap.get(directiveName);

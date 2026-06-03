@@ -1,14 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UniqueArgumentDefinitionNamesRule = UniqueArgumentDefinitionNamesRule;
-const groupBy_js_1 = require("../../jsutils/groupBy.js");
-const GraphQLError_js_1 = require("../../error/GraphQLError.js");
-/**
- * Unique argument definition names
- *
- * A GraphQL Object or Interface type is only valid if all its fields have uniquely named arguments.
- * A GraphQL Directive is only valid if all its arguments are uniquely named.
- */
+const groupBy_ts_1 = require("../../jsutils/groupBy.js");
+const GraphQLError_ts_1 = require("../../error/GraphQLError.js");
 function UniqueArgumentDefinitionNamesRule(context) {
     return {
         DirectiveDefinition(directiveNode) {
@@ -31,10 +25,10 @@ function UniqueArgumentDefinitionNamesRule(context) {
         return false;
     }
     function checkArgUniqueness(parentName, argumentNodes) {
-        const seenArgs = (0, groupBy_js_1.groupBy)(argumentNodes, (arg) => arg.name.value);
+        const seenArgs = (0, groupBy_ts_1.groupBy)(argumentNodes, (arg) => arg.name.value);
         for (const [argName, argNodes] of seenArgs) {
             if (argNodes.length > 1) {
-                context.reportError(new GraphQLError_js_1.GraphQLError(`Argument "${parentName}(${argName}:)" can only be defined once.`, { nodes: argNodes.map((node) => node.name) }));
+                context.reportError(new GraphQLError_ts_1.GraphQLError(`Argument "${parentName}(${argName}:)" can only be defined once.`, { nodes: argNodes.map((node) => node.name) }));
             }
         }
         return false;

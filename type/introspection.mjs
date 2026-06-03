@@ -38,7 +38,17 @@ export const __Schema = new GraphQLObjectType({
         directives: {
             description: 'A list of all directives supported by this server.',
             type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(__Directive))),
-            resolve: (schema) => schema.getDirectives(),
+            args: {
+                includeDeprecated: {
+                    type: new GraphQLNonNull(GraphQLBoolean),
+                    default: { value: false },
+                },
+            },
+            resolve: (schema, { includeDeprecated }) => includeDeprecated === true
+                ? schema.getDirectives()
+                : schema
+                    .getDirectives()
+                    .filter((directive) => directive.deprecationReason == null),
         },
     }),
 });
@@ -75,6 +85,14 @@ export const __Directive = new GraphQLObjectType({
                     ? field.args
                     : field.args.filter((arg) => arg.deprecationReason == null);
             },
+        },
+        isDeprecated: {
+            type: new GraphQLNonNull(GraphQLBoolean),
+            resolve: (directive) => directive.deprecationReason != null,
+        },
+        deprecationReason: {
+            type: GraphQLString,
+            resolve: (directive) => directive.deprecationReason,
         },
     }),
 });
@@ -162,6 +180,10 @@ export const __DirectiveLocation = new GraphQLEnumType({
             value: DirectiveLocation.INPUT_FIELD_DEFINITION,
             description: 'Location adjacent to an input object field definition.',
         },
+        DIRECTIVE_DEFINITION: {
+            value: DirectiveLocation.DIRECTIVE_DEFINITION,
+            description: 'Location adjacent to a directive definition.',
+        },
     },
 });
 export const __Type = new GraphQLObjectType({
@@ -195,9 +217,7 @@ export const __Type = new GraphQLObjectType({
                 if (isNonNullType(type)) {
                     return TypeKind.NON_NULL;
                 }
-                /* c8 ignore next 3 */
-                // Not reachable, all possible types have been considered)
-                (false) || invariant(false, `Unexpected type: "${inspect(type)}".`);
+                invariant(false, `Unexpected type: "${inspect(type)}".`);
             },
         },
         name: {
@@ -206,10 +226,7 @@ export const __Type = new GraphQLObjectType({
         },
         description: {
             type: GraphQLString,
-            resolve: (type) => 
-            // FIXME: add test case
-            /* c8 ignore next */
-            'description' in type ? type.description : undefined,
+            resolve: (type) => 'description' in type ? type.description : undefined,
         },
         specifiedByURL: {
             type: GraphQLString,

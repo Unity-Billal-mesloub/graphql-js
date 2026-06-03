@@ -1,11 +1,6 @@
 import { naturalCompare } from "../jsutils/naturalCompare.mjs";
 import { GraphQLSchema } from "../type/schema.mjs";
 import { mapSchemaConfig, SchemaElementKind } from "./mapSchemaConfig.mjs";
-/**
- * Sort GraphQLSchema.
- *
- * This function returns a sorted copy of the given GraphQLSchema.
- */
 export function lexicographicSortSchema(schema) {
     return new GraphQLSchema(mapSchemaConfig(schema.toConfig(), () => ({
         [SchemaElementKind.OBJECT]: (config) => ({

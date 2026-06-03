@@ -1,8 +1,5 @@
 import { GraphQLError } from "../error/GraphQLError.mjs";
 import { isNameContinue, isNameStart } from "../language/characterClasses.mjs";
-/**
- * Upholds the spec rules about naming.
- */
 export function assertName(name) {
     if (name.length === 0) {
         throw new GraphQLError('Expected name to be a non-empty string.');
@@ -17,11 +14,6 @@ export function assertName(name) {
     }
     return name;
 }
-/**
- * Upholds the spec rules about naming enum values.
- *
- * @internal
- */
 export function assertEnumValueName(name) {
     if (name === 'true' || name === 'false' || name === 'null') {
         throw new GraphQLError(`Enum values cannot be named: ${name}`);

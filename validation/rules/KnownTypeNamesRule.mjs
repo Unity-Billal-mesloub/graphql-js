@@ -4,14 +4,6 @@ import { GraphQLError } from "../../error/GraphQLError.mjs";
 import { isTypeDefinitionNode, isTypeSystemDefinitionNode, isTypeSystemExtensionNode, } from "../../language/predicates.mjs";
 import { introspectionTypes } from "../../type/introspection.mjs";
 import { specifiedScalarTypes } from "../../type/scalars.mjs";
-/**
- * Known type names
- *
- * A GraphQL document is only valid if referenced types (specifically
- * variable definitions and fragment conditions) are defined by the type schema.
- *
- * See https://spec.graphql.org/draft/#sec-Fragment-Spread-Type-Existence
- */
 export function KnownTypeNamesRule(context) {
     const { definitions } = context.getDocument();
     const existingTypesMap = context.getSchema()?.getTypeMap() ?? {};

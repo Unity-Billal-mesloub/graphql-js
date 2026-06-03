@@ -3,18 +3,8 @@ import { suggestionList } from "../../jsutils/suggestionList.mjs";
 import { GraphQLError } from "../../error/GraphQLError.mjs";
 import { Kind } from "../../language/kinds.mjs";
 import { specifiedDirectives } from "../../type/directives.mjs";
-/**
- * Known argument names
- *
- * A GraphQL field is only valid if all supplied arguments are defined by
- * that field.
- *
- * See https://spec.graphql.org/draft/#sec-Argument-Names
- * See https://spec.graphql.org/draft/#sec-Directives-Are-In-Valid-Locations
- */
 export function KnownArgumentNamesRule(context) {
     return {
-        // eslint-disable-next-line new-cap
         ...KnownArgumentNamesOnDirectivesRule(context),
         FragmentArgument(argNode) {
             const fragmentSignature = context.getFragmentSignature();
@@ -44,9 +34,6 @@ export function KnownArgumentNamesRule(context) {
         },
     };
 }
-/**
- * @internal
- */
 export function KnownArgumentNamesOnDirectivesRule(context) {
     const directiveArgs = new Map();
     const schema = context.getSchema();

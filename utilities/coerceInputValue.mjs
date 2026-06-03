@@ -1,31 +1,25 @@
+import { inspect } from "../jsutils/inspect.mjs";
 import { invariant } from "../jsutils/invariant.mjs";
 import { isIterableObject } from "../jsutils/isIterableObject.mjs";
 import { isObjectLike } from "../jsutils/isObjectLike.mjs";
 import { Kind } from "../language/kinds.mjs";
 import { assertLeafType, isInputObjectType, isListType, isNonNullType, isRequiredInputField, } from "../type/definition.mjs";
 import { replaceVariables } from "./replaceVariables.mjs";
-/**
- * Coerces a JavaScript value given a GraphQL Input Type.
- *
- * Returns `undefined` when the value could not be validly coerced according to
- * the provided type.
- */
 export function coerceInputValue(inputValue, type) {
     if (isNonNullType(type)) {
         if (inputValue == null) {
-            return; // Invalid: intentionally return no value.
+            return;
         }
         return coerceInputValue(inputValue, type.ofType);
     }
     if (inputValue == null) {
-        return null; // Explicitly return the value null.
+        return null;
     }
     if (isListType(type)) {
         if (!isIterableObject(inputValue)) {
-            // Lists accept a non-list value as a list of one.
             const coercedItem = coerceInputValue(inputValue, type.ofType);
             if (coercedItem === undefined) {
-                return; // Invalid: intentionally return no value.
+                return;
             }
             return [coercedItem];
         }
@@ -33,27 +27,33 @@ export function coerceInputValue(inputValue, type) {
         for (const itemValue of inputValue) {
             const coercedItem = coerceInputValue(itemValue, type.ofType);
             if (coercedItem === undefined) {
-                return; // Invalid: intentionally return no value.
+                return;
             }
             coercedValue.push(coercedItem);
         }
         return coercedValue;
     }
     if (isInputObjectType(type)) {
-        if (!isObjectLike(inputValue)) {
-            return; // Invalid: intentionally return no value.
+        if (!isObjectLike(inputValue) || Array.isArray(inputValue)) {
+            return;
         }
-        const coercedValue = {};
+        const coercedValue = Object.create(null);
         const fieldDefs = type.getFields();
-        const hasUndefinedField = Object.keys(inputValue).some((name) => !Object.hasOwn(fieldDefs, name));
-        if (hasUndefinedField) {
-            return; // Invalid: intentionally return no value.
+        let definedFieldCount = 0;
+        for (const fieldName of Object.keys(inputValue)) {
+            if (inputValue[fieldName] === undefined) {
+                continue;
+            }
+            definedFieldCount++;
+            if (!Object.hasOwn(fieldDefs, fieldName)) {
+                return;
+            }
         }
         for (const field of Object.values(fieldDefs)) {
             const fieldValue = inputValue[field.name];
             if (fieldValue === undefined) {
                 if (isRequiredInputField(field)) {
-                    return; // Invalid: intentionally return no value.
+                    return;
                 }
                 const coercedDefaultValue = coerceDefaultValue(field);
                 if (coercedDefaultValue !== undefined) {
@@ -63,20 +63,20 @@ export function coerceInputValue(inputValue, type) {
             else {
                 const coercedField = coerceInputValue(fieldValue, field.type);
                 if (coercedField === undefined) {
-                    return; // Invalid: intentionally return no value.
+                    return;
                 }
                 coercedValue[field.name] = coercedField;
             }
         }
         if (type.isOneOf) {
             const keys = Object.keys(coercedValue);
-            if (keys.length !== 1) {
-                return; // Invalid: intentionally return no value.
+            if (definedFieldCount !== 1 || keys.length !== 1) {
+                return;
             }
             const key = keys[0];
             const value = coercedValue[key];
             if (value === null) {
-                return; // Invalid: intentionally return no value.
+                return;
             }
         }
         return coercedValue;
@@ -86,40 +86,30 @@ export function coerceInputValue(inputValue, type) {
         return leafType.coerceInputValue(inputValue);
     }
     catch (_error) {
-        // Invalid: ignore error and intentionally return no value.
     }
 }
-/**
- * Produces a coerced "internal" JavaScript value given a GraphQL Value AST.
- *
- * Returns `undefined` when the value could not be validly coerced according to
- * the provided type.
- */
 export function coerceInputLiteral(valueNode, type, variableValues, fragmentVariableValues) {
     if (valueNode.kind === Kind.VARIABLE) {
         const coercedVariableValue = getCoercedVariableValue(valueNode, variableValues, fragmentVariableValues);
         if (coercedVariableValue == null && isNonNullType(type)) {
-            return; // Invalid: intentionally return no value.
+            return;
         }
-        // Note: This does no further checking that this variable is correct.
-        // This assumes validated has checked this variable is of the correct type.
         return coercedVariableValue;
     }
     if (isNonNullType(type)) {
         if (valueNode.kind === Kind.NULL) {
-            return; // Invalid: intentionally return no value.
+            return;
         }
         return coerceInputLiteral(valueNode, type.ofType, variableValues, fragmentVariableValues);
     }
     if (valueNode.kind === Kind.NULL) {
-        return null; // Explicitly return the value null.
+        return null;
     }
     if (isListType(type)) {
         if (valueNode.kind !== Kind.LIST) {
-            // Lists accept a non-list value as a list of one.
             const itemValue = coerceInputLiteral(valueNode, type.ofType, variableValues, fragmentVariableValues);
             if (itemValue === undefined) {
-                return; // Invalid: intentionally return no value.
+                return;
             }
             return [itemValue];
         }
@@ -130,11 +120,10 @@ export function coerceInputLiteral(valueNode, type, variableValues, fragmentVari
                 if (itemNode.kind === Kind.VARIABLE &&
                     getCoercedVariableValue(itemNode, variableValues, fragmentVariableValues) == null &&
                     !isNonNullType(type.ofType)) {
-                    // A missing variable within a list is coerced to null.
                     itemValue = null;
                 }
                 else {
-                    return; // Invalid: intentionally return no value.
+                    return;
                 }
             }
             coercedValue.push(itemValue);
@@ -143,22 +132,22 @@ export function coerceInputLiteral(valueNode, type, variableValues, fragmentVari
     }
     if (isInputObjectType(type)) {
         if (valueNode.kind !== Kind.OBJECT) {
-            return; // Invalid: intentionally return no value.
+            return;
         }
-        const coercedValue = {};
+        const coercedValue = Object.create(null);
         const fieldDefs = type.getFields();
         const hasUndefinedField = valueNode.fields.some((field) => !Object.hasOwn(fieldDefs, field.name.value));
         if (hasUndefinedField) {
-            return; // Invalid: intentionally return no value.
+            return;
         }
         const fieldNodes = new Map(valueNode.fields.map((field) => [field.name.value, field]));
         for (const field of Object.values(fieldDefs)) {
             const fieldNode = fieldNodes.get(field.name);
             if (!fieldNode ||
                 (fieldNode.value.kind === Kind.VARIABLE &&
-                    getCoercedVariableValue(fieldNode.value, variableValues, fragmentVariableValues) == null)) {
+                    isMissingVariable(fieldNode.value, variableValues, fragmentVariableValues))) {
                 if (isRequiredInputField(field)) {
-                    return; // Invalid: intentionally return no value.
+                    return;
                 }
                 const coercedDefaultValue = coerceDefaultValue(field);
                 if (coercedDefaultValue !== undefined) {
@@ -168,18 +157,21 @@ export function coerceInputLiteral(valueNode, type, variableValues, fragmentVari
             else {
                 const fieldValue = coerceInputLiteral(fieldNode.value, field.type, variableValues, fragmentVariableValues);
                 if (fieldValue === undefined) {
-                    return; // Invalid: intentionally return no value.
+                    return;
                 }
                 coercedValue[field.name] = fieldValue;
             }
         }
         if (type.isOneOf) {
-            const keys = Object.keys(coercedValue);
-            if (keys.length !== 1) {
-                return; // Invalid: not exactly one key, intentionally return no value.
+            const coercedKeys = Object.keys(coercedValue);
+            if (fieldNodes.size !== 1 || coercedKeys.length !== 1) {
+                return;
             }
-            if (coercedValue[keys[0]] === null) {
-                return; // Invalid: value not non-null, intentionally return no value.
+            for (const [fieldName, fieldNode] of fieldNodes) {
+                if (fieldNode.value.kind === Kind.NULL ||
+                    coercedValue[fieldName] === null) {
+                    return;
+                }
             }
         }
         return coercedValue;
@@ -191,10 +183,8 @@ export function coerceInputLiteral(valueNode, type, variableValues, fragmentVari
             : leafType.parseLiteral(valueNode, variableValues?.coerced);
     }
     catch (_error) {
-        // Invalid: ignore error and intentionally return no value.
     }
 }
-// Retrieves the variable value for the given variable node.
 function getCoercedVariableValue(variableNode, variableValues, fragmentVariableValues) {
     const varName = variableNode.name.value;
     if (fragmentVariableValues?.sources[varName] !== undefined) {
@@ -202,11 +192,14 @@ function getCoercedVariableValue(variableNode, variableValues, fragmentVariableV
     }
     return variableValues?.coerced[varName];
 }
-/**
- * @internal
- */
+function isMissingVariable(variableNode, variableValues, fragmentVariableValues) {
+    const varName = variableNode.name.value;
+    const scopedValues = fragmentVariableValues?.sources[varName] !== undefined
+        ? fragmentVariableValues.coerced
+        : variableValues?.coerced;
+    return scopedValues?.[varName] === undefined;
+}
 export function coerceDefaultValue(inputValue) {
-    // Memoize the result of coercing the default value in a hidden field.
     let coercedDefaultValue = inputValue._memoizedCoercedDefaultValue;
     if (coercedDefaultValue !== undefined) {
         return coercedDefaultValue;
@@ -216,7 +209,8 @@ export function coerceDefaultValue(inputValue) {
         coercedDefaultValue = defaultInput.literal
             ? coerceInputLiteral(defaultInput.literal, inputValue.type)
             : coerceInputValue(defaultInput.value, inputValue.type);
-        (coercedDefaultValue !== undefined) || invariant(false);
+        if (!(coercedDefaultValue !== undefined))
+            invariant(false, `Expected value of type "${inputValue.type}" to be valid, found: ${inspect(defaultInput.literal ?? defaultInput.value)}.`);
         inputValue._memoizedCoercedDefaultValue = coercedDefaultValue;
         return coercedDefaultValue;
     }

@@ -1,3 +1,4 @@
+import { OperationTypeNode } from "./ast.mjs";
 import { Kind } from "./kinds.mjs";
 export function isDefinitionNode(node) {
     return (isExecutableDefinitionNode(node) ||
@@ -7,6 +8,9 @@ export function isDefinitionNode(node) {
 export function isExecutableDefinitionNode(node) {
     return (node.kind === Kind.OPERATION_DEFINITION ||
         node.kind === Kind.FRAGMENT_DEFINITION);
+}
+export function isSubscriptionOperationDefinitionNode(node) {
+    return node.operation === OperationTypeNode.SUBSCRIPTION;
 }
 export function isSelectionNode(node) {
     return (node.kind === Kind.FIELD ||
@@ -51,7 +55,9 @@ export function isTypeDefinitionNode(node) {
         node.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION);
 }
 export function isTypeSystemExtensionNode(node) {
-    return node.kind === Kind.SCHEMA_EXTENSION || isTypeExtensionNode(node);
+    return (node.kind === Kind.SCHEMA_EXTENSION ||
+        node.kind === Kind.DIRECTIVE_EXTENSION ||
+        isTypeExtensionNode(node));
 }
 export function isTypeExtensionNode(node) {
     return (node.kind === Kind.SCALAR_TYPE_EXTENSION ||
@@ -60,5 +66,12 @@ export function isTypeExtensionNode(node) {
         node.kind === Kind.UNION_TYPE_EXTENSION ||
         node.kind === Kind.ENUM_TYPE_EXTENSION ||
         node.kind === Kind.INPUT_OBJECT_TYPE_EXTENSION);
+}
+export function isSchemaCoordinateNode(node) {
+    return (node.kind === Kind.TYPE_COORDINATE ||
+        node.kind === Kind.MEMBER_COORDINATE ||
+        node.kind === Kind.ARGUMENT_COORDINATE ||
+        node.kind === Kind.DIRECTIVE_COORDINATE ||
+        node.kind === Kind.DIRECTIVE_ARGUMENT_COORDINATE);
 }
 //# sourceMappingURL=predicates.js.map

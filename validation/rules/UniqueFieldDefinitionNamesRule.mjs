@@ -1,10 +1,5 @@
 import { GraphQLError } from "../../error/GraphQLError.mjs";
 import { isInputObjectType, isInterfaceType, isObjectType, } from "../../type/definition.mjs";
-/**
- * Unique field definition names
- *
- * A GraphQL complex type is only valid if all its fields are uniquely named.
- */
 export function UniqueFieldDefinitionNamesRule(context) {
     const schema = context.getSchema();
     const existingTypeMap = schema ? schema.getTypeMap() : Object.create(null);

@@ -2,15 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchemaElementKind = void 0;
 exports.mapSchemaConfig = mapSchemaConfig;
-const inspect_js_1 = require("../jsutils/inspect.js");
-const invariant_js_1 = require("../jsutils/invariant.js");
-const definition_js_1 = require("../type/definition.js");
-const directives_js_1 = require("../type/directives.js");
-const introspection_js_1 = require("../type/introspection.js");
-const scalars_js_1 = require("../type/scalars.js");
-/**
- * The set of GraphQL Schema Elements.
- */
+const inspect_ts_1 = require("../jsutils/inspect.js");
+const invariant_ts_1 = require("../jsutils/invariant.js");
+const definition_ts_1 = require("../type/definition.js");
+const directives_ts_1 = require("../type/directives.js");
+const introspection_ts_1 = require("../type/introspection.js");
+const scalars_ts_1 = require("../type/scalars.js");
 exports.SchemaElementKind = {
     SCHEMA: 'SCHEMA',
     SCALAR: 'SCALAR',
@@ -25,9 +22,6 @@ exports.SchemaElementKind = {
     INPUT_FIELD: 'INPUT_FIELD',
     DIRECTIVE: 'DIRECTIVE',
 };
-/**
- * @internal
- */
 function mapSchemaConfig(schemaConfig, configMapperMapFn) {
     const configMapperMap = configMapperMapFn({
         getNamedType,
@@ -44,14 +38,13 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
     }
     const mappedDirectives = [];
     for (const directive of schemaConfig.directives) {
-        if ((0, directives_js_1.isSpecifiedDirective)(directive)) {
-            // Builtin directives cannot be mapped.
+        if ((0, directives_ts_1.isSpecifiedDirective)(directive)) {
             mappedDirectives.push(directive);
             continue;
         }
         const mappedDirectiveConfig = mapDirective(directive.toConfig());
         if (mappedDirectiveConfig) {
-            mappedDirectives.push(new directives_js_1.GraphQLDirective(mappedDirectiveConfig));
+            mappedDirectives.push(new directives_ts_1.GraphQLDirective(mappedDirectiveConfig));
         }
     }
     const mappedSchemaConfig = {
@@ -70,17 +63,18 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         ? mappedSchemaConfig
         : schemaMapper(mappedSchemaConfig);
     function getType(type) {
-        if ((0, definition_js_1.isListType)(type)) {
-            return new definition_js_1.GraphQLList(getType(type.ofType));
+        if ((0, definition_ts_1.isListType)(type)) {
+            return new definition_ts_1.GraphQLList(getType(type.ofType));
         }
-        if ((0, definition_js_1.isNonNullType)(type)) {
-            return new definition_js_1.GraphQLNonNull(getType(type.ofType));
+        if ((0, definition_ts_1.isNonNullType)(type)) {
+            return new definition_ts_1.GraphQLNonNull(getType(type.ofType));
         }
         return getNamedType(type.name);
     }
     function getNamedType(typeName) {
         const type = stdTypeMap.get(typeName) ?? mappedTypeMap.get(typeName);
-        (type !== undefined) || (0, invariant_js_1.invariant)(false, `Unknown type: "${typeName}".`);
+        if (!(type !== undefined))
+            (0, invariant_ts_1.invariant)(false, `Unknown type: "${typeName}".`);
         return type;
     }
     function setNamedType(type) {
@@ -90,37 +84,34 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         return Array.from(mappedTypeMap.values());
     }
     function mapNamedType(type) {
-        if ((0, introspection_js_1.isIntrospectionType)(type) || (0, scalars_js_1.isSpecifiedScalarType)(type)) {
-            // Builtin types cannot be mapped.
+        if ((0, introspection_ts_1.isIntrospectionType)(type) || (0, scalars_ts_1.isSpecifiedScalarType)(type)) {
             return type;
         }
-        if ((0, definition_js_1.isScalarType)(type)) {
+        if ((0, definition_ts_1.isScalarType)(type)) {
             return mapScalarType(type);
         }
-        if ((0, definition_js_1.isObjectType)(type)) {
+        if ((0, definition_ts_1.isObjectType)(type)) {
             return mapObjectType(type);
         }
-        if ((0, definition_js_1.isInterfaceType)(type)) {
+        if ((0, definition_ts_1.isInterfaceType)(type)) {
             return mapInterfaceType(type);
         }
-        if ((0, definition_js_1.isUnionType)(type)) {
+        if ((0, definition_ts_1.isUnionType)(type)) {
             return mapUnionType(type);
         }
-        if ((0, definition_js_1.isEnumType)(type)) {
+        if ((0, definition_ts_1.isEnumType)(type)) {
             return mapEnumType(type);
         }
-        if ((0, definition_js_1.isInputObjectType)(type)) {
+        if ((0, definition_ts_1.isInputObjectType)(type)) {
             return mapInputObjectType(type);
         }
-        /* c8 ignore next 3 */
-        // Not reachable, all possible type definition nodes have been considered.
-        (false) || (0, invariant_js_1.invariant)(false, 'Unexpected type: ' + (0, inspect_js_1.inspect)(type));
+        (0, invariant_ts_1.invariant)(false, 'Unexpected type: ' + (0, inspect_ts_1.inspect)(type));
     }
     function mapScalarType(type) {
         let mappedConfig = type.toConfig();
         const mapper = configMapperMap[exports.SchemaElementKind.SCALAR];
         mappedConfig = mapper == null ? mappedConfig : mapper(mappedConfig);
-        return new definition_js_1.GraphQLScalarType(mappedConfig);
+        return new definition_ts_1.GraphQLScalarType(mappedConfig);
     }
     function mapObjectType(type) {
         const config = type.toConfig();
@@ -131,7 +122,7 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         };
         const mapper = configMapperMap[exports.SchemaElementKind.OBJECT];
         mappedConfig = mapper == null ? mappedConfig : mapper(mappedConfig);
-        return new definition_js_1.GraphQLObjectType(mappedConfig);
+        return new definition_ts_1.GraphQLObjectType(mappedConfig);
     }
     function mapFields(fieldMap, parentTypeName) {
         const newFieldMap = Object.create(null);
@@ -173,7 +164,7 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         };
         const mapper = configMapperMap[exports.SchemaElementKind.INTERFACE];
         mappedConfig = mapper == null ? mappedConfig : mapper(mappedConfig);
-        return new definition_js_1.GraphQLInterfaceType(mappedConfig);
+        return new definition_ts_1.GraphQLInterfaceType(mappedConfig);
     }
     function mapUnionType(type) {
         const config = type.toConfig();
@@ -183,7 +174,7 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         };
         const mapper = configMapperMap[exports.SchemaElementKind.UNION];
         mappedConfig = mapper == null ? mappedConfig : mapper(mappedConfig);
-        return new definition_js_1.GraphQLUnionType(mappedConfig);
+        return new definition_ts_1.GraphQLUnionType(mappedConfig);
     }
     function mapEnumType(type) {
         const config = type.toConfig();
@@ -200,7 +191,7 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         };
         const mapper = configMapperMap[exports.SchemaElementKind.ENUM];
         mappedConfig = mapper == null ? mappedConfig : mapper(mappedConfig);
-        return new definition_js_1.GraphQLEnumType(mappedConfig);
+        return new definition_ts_1.GraphQLEnumType(mappedConfig);
     }
     function mapEnumValue(valueConfig, valueName, enumName) {
         const mappedConfig = { ...valueConfig };
@@ -224,7 +215,7 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         };
         const mapper = configMapperMap[exports.SchemaElementKind.INPUT_OBJECT];
         mappedConfig = mapper == null ? mappedConfig : mapper(mappedConfig);
-        return new definition_js_1.GraphQLInputObjectType(mappedConfig);
+        return new definition_ts_1.GraphQLInputObjectType(mappedConfig);
     }
     function mapInputField(inputFieldConfig, inputFieldName, inputObjectTypeName) {
         const mappedConfig = {
@@ -245,7 +236,7 @@ function mapSchemaConfig(schemaConfig, configMapperMapFn) {
         return mapper == null ? mappedConfig : mapper(mappedConfig);
     }
 }
-const stdTypeMap = new Map([...scalars_js_1.specifiedScalarTypes, ...introspection_js_1.introspectionTypes].map((type) => [
+const stdTypeMap = new Map([...scalars_ts_1.specifiedScalarTypes, ...introspection_ts_1.introspectionTypes].map((type) => [
     type.name,
     type,
 ]));

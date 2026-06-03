@@ -8,36 +8,19 @@ import { GraphQLDirective } from "../type/directives.mjs";
 import { introspectionTypes, TypeKind } from "../type/introspection.mjs";
 import { specifiedScalarTypes } from "../type/scalars.mjs";
 import { GraphQLSchema } from "../type/schema.mjs";
-/**
- * Build a GraphQLSchema for use by client tools.
- *
- * Given the result of a client running the introspection query, creates and
- * returns a GraphQLSchema instance which can be then used with all graphql-js
- * tools, but cannot be used to execute a query, as introspection does not
- * represent the "resolver", "coerceInputValue" or "coerceOutputValue"
- * functions or any other server-internal mechanisms.
- *
- * This function expects a complete introspection result. Don't forget to check
- * the "errors" field of a server response before calling this function.
- */
 export function buildClientSchema(introspection, options) {
-    // Even though the `introspection` argument is typed, in most cases it's received
-    // as an untyped value from the server, so we will do an additional check here.
-    (isObjectLike(introspection) && isObjectLike(introspection.__schema)) || devAssert(false, `Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: ${inspect(introspection)}.`);
-    // Get the schema from the introspection result.
+    if (!(isObjectLike(introspection) && isObjectLike(introspection.__schema)))
+        devAssert(false, `Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: ${inspect(introspection)}.`);
     const schemaIntrospection = introspection.__schema;
-    // Iterate through all types, getting the type definition for each.
     const typeMap = new Map(schemaIntrospection.types.map((typeIntrospection) => [
         typeIntrospection.name,
         buildType(typeIntrospection),
     ]));
-    // Include standard types only if they are used.
     for (const stdType of [...specifiedScalarTypes, ...introspectionTypes]) {
         if (typeMap.has(stdType.name)) {
             typeMap.set(stdType.name, stdType);
         }
     }
-    // Get the root Query, Mutation, and Subscription types.
     const queryType = schemaIntrospection.queryType != null
         ? getObjectType(schemaIntrospection.queryType)
         : null;
@@ -47,12 +30,9 @@ export function buildClientSchema(introspection, options) {
     const subscriptionType = schemaIntrospection.subscriptionType != null
         ? getObjectType(schemaIntrospection.subscriptionType)
         : null;
-    // Get the directives supported by Introspection, assuming empty-set if
-    // directives were not queried for.
     const directives = schemaIntrospection.directives != null
         ? schemaIntrospection.directives.map(buildDirective)
         : [];
-    // Then produce and return a Schema with these types.
     return new GraphQLSchema({
         description: schemaIntrospection.description,
         query: queryType,
@@ -62,8 +42,6 @@ export function buildClientSchema(introspection, options) {
         directives,
         assumeValid: options?.assumeValid,
     });
-    // Given a type reference in introspection, return the GraphQLType instance.
-    // preferring cached instances before building new instances.
     function getType(typeRef) {
         if (typeRef.kind === TypeKind.LIST) {
             const itemRef = typeRef.ofType;
@@ -99,8 +77,6 @@ export function buildClientSchema(introspection, options) {
     function getInterfaceType(typeRef) {
         return assertInterfaceType(getNamedType(typeRef));
     }
-    // Given a type's introspection result, construct the correct
-    // GraphQLType instance.
     function buildType(type) {
         switch (type.kind) {
             case TypeKind.SCALAR:
@@ -115,10 +91,9 @@ export function buildClientSchema(introspection, options) {
                 return buildEnumDef(type);
             case TypeKind.INPUT_OBJECT:
                 return buildInputObjectDef(type);
+            default:
+                throw new Error(`Invalid or incomplete introspection result. Ensure that a full introspection query is used in order to build a client schema: ${inspect(type)}.`);
         }
-        // Unreachable.
-        // @ts-expect-error
-        throw new Error(`Invalid or incomplete introspection result. Ensure that a full introspection query is used in order to build a client schema: ${inspect(type)}.`);
     }
     function buildScalarDef(scalarIntrospection) {
         return new GraphQLScalarType({
@@ -128,8 +103,6 @@ export function buildClientSchema(introspection, options) {
         });
     }
     function buildImplementationsList(implementingIntrospection) {
-        // TODO: Temporary workaround until GraphQL ecosystem will fully support
-        // 'interfaces' on interface types.
         if (implementingIntrospection.interfaces === null &&
             implementingIntrospection.kind === TypeKind.INTERFACE) {
             return [];
@@ -247,6 +220,7 @@ export function buildClientSchema(introspection, options) {
             name: directiveIntrospection.name,
             description: directiveIntrospection.description,
             isRepeatable: directiveIntrospection.isRepeatable,
+            deprecationReason: directiveIntrospection.deprecationReason,
             locations: directiveIntrospection.locations.slice(),
             args: buildInputValueDefMap(directiveIntrospection.args),
         });

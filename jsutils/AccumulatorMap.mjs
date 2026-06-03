@@ -1,6 +1,3 @@
-/**
- * ES6 Map with additional `add` method to accumulate items.
- */
 export class AccumulatorMap extends Map {
     get [Symbol.toStringTag]() {
         return 'AccumulatorMap';

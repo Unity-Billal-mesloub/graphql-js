@@ -8,11 +8,9 @@ import { DirectiveLocation } from "../language/directiveLocation.mjs";
 import { assertName } from "./assertName.mjs";
 import { GraphQLArgument, GraphQLNonNull } from "./definition.mjs";
 import { GraphQLBoolean, GraphQLInt, GraphQLString } from "./scalars.mjs";
-/**
- * Test if the given value is a GraphQL directive.
- */
+const directiveSymbol = Symbol('Directive');
 export function isDirective(directive) {
-    return instanceOf(directive, GraphQLDirective);
+    return instanceOf(directive, directiveSymbol, GraphQLDirective);
 }
 export function assertDirective(directive) {
     if (!isDirective(directive)) {
@@ -20,21 +18,22 @@ export function assertDirective(directive) {
     }
     return directive;
 }
-/**
- * Directives are used by the GraphQL runtime as a way of modifying execution
- * behavior. Type system creators will usually not create these directly.
- */
 export class GraphQLDirective {
     constructor(config) {
+        this.__kind = directiveSymbol;
         this.name = assertName(config.name);
         this.description = config.description;
         this.locations = config.locations;
         this.isRepeatable = config.isRepeatable ?? false;
+        this.deprecationReason = config.deprecationReason;
         this.extensions = toObjMapWithSymbols(config.extensions);
         this.astNode = config.astNode;
-        (Array.isArray(config.locations)) || devAssert(false, `@${this.name} locations must be an Array.`);
+        this.extensionASTNodes = config.extensionASTNodes ?? [];
+        if (!(Array.isArray(config.locations)))
+            devAssert(false, `@${this.name} locations must be an Array.`);
         const args = config.args ?? {};
-        (isObjectLike(args) && !Array.isArray(args)) || devAssert(false, `@${this.name} args must be an object with argument names as keys.`);
+        if (!(isObjectLike(args) && !Array.isArray(args)))
+            devAssert(false, `@${this.name} args must be an object with argument names as keys.`);
         this.args = Object.entries(args).map(([argName, argConfig]) => new GraphQLArgument(this, argName, argConfig));
     }
     get [Symbol.toStringTag]() {
@@ -47,8 +46,10 @@ export class GraphQLDirective {
             locations: this.locations,
             args: keyValMap(this.args, (arg) => arg.name, (arg) => arg.toConfig()),
             isRepeatable: this.isRepeatable,
+            deprecationReason: this.deprecationReason,
             extensions: this.extensions,
             astNode: this.astNode,
+            extensionASTNodes: this.extensionASTNodes,
         };
     }
     toString() {
@@ -58,9 +59,6 @@ export class GraphQLDirective {
         return this.toString();
     }
 }
-/**
- * Used to conditionally include fields or fragments.
- */
 export const GraphQLIncludeDirective = new GraphQLDirective({
     name: 'include',
     description: 'Directs the executor to include this field or fragment only when the `if` argument is true.',
@@ -76,9 +74,6 @@ export const GraphQLIncludeDirective = new GraphQLDirective({
         },
     },
 });
-/**
- * Used to conditionally skip (exclude) fields or fragments.
- */
 export const GraphQLSkipDirective = new GraphQLDirective({
     name: 'skip',
     description: 'Directs the executor to skip this field or fragment when the `if` argument is true.',
@@ -94,9 +89,6 @@ export const GraphQLSkipDirective = new GraphQLDirective({
         },
     },
 });
-/**
- * Used to conditionally defer fragments.
- */
 export const GraphQLDeferDirective = new GraphQLDirective({
     name: 'defer',
     description: 'Directs the executor to defer this fragment when the `if` argument is true or undefined.',
@@ -116,9 +108,6 @@ export const GraphQLDeferDirective = new GraphQLDirective({
         },
     },
 });
-/**
- * Used to conditionally stream list fields.
- */
 export const GraphQLStreamDirective = new GraphQLDirective({
     name: 'stream',
     description: 'Directs the executor to stream plural fields when the `if` argument is true or undefined.',
@@ -140,13 +129,7 @@ export const GraphQLStreamDirective = new GraphQLDirective({
         },
     },
 });
-/**
- * Constant string used for default reason for a deprecation.
- */
 export const DEFAULT_DEPRECATION_REASON = 'No longer supported';
-/**
- * Used to declare element of a GraphQL schema as deprecated.
- */
 export const GraphQLDeprecatedDirective = new GraphQLDirective({
     name: 'deprecated',
     description: 'Marks an element of a GraphQL schema as no longer supported.',
@@ -155,6 +138,7 @@ export const GraphQLDeprecatedDirective = new GraphQLDirective({
         DirectiveLocation.ARGUMENT_DEFINITION,
         DirectiveLocation.INPUT_FIELD_DEFINITION,
         DirectiveLocation.ENUM_VALUE,
+        DirectiveLocation.DIRECTIVE_DEFINITION,
     ],
     args: {
         reason: {
@@ -164,9 +148,6 @@ export const GraphQLDeprecatedDirective = new GraphQLDirective({
         },
     },
 });
-/**
- * Used to provide a URL for specifying the behavior of custom scalar definitions.
- */
 export const GraphQLSpecifiedByDirective = new GraphQLDirective({
     name: 'specifiedBy',
     description: 'Exposes a URL that specifies the behavior of this scalar.',
@@ -178,18 +159,12 @@ export const GraphQLSpecifiedByDirective = new GraphQLDirective({
         },
     },
 });
-/**
- * Used to indicate an Input Object is a OneOf Input Object.
- */
 export const GraphQLOneOfDirective = new GraphQLDirective({
     name: 'oneOf',
     description: 'Indicates exactly one field must be supplied and this field must not be `null`.',
     locations: [DirectiveLocation.INPUT_OBJECT],
     args: {},
 });
-/**
- * Disables error propagation (experimental).
- */
 export const GraphQLDisableErrorPropagationDirective = new GraphQLDirective({
     name: 'experimental_disableErrorPropagation',
     description: 'Disables error propagation.',
@@ -199,9 +174,6 @@ export const GraphQLDisableErrorPropagationDirective = new GraphQLDirective({
         DirectiveLocation.SUBSCRIPTION,
     ],
 });
-/**
- * The full list of specified directives.
- */
 export const specifiedDirectives = Object.freeze([
     GraphQLIncludeDirective,
     GraphQLSkipDirective,

@@ -1,9 +1,4 @@
 import { GraphQLError } from "../../error/GraphQLError.mjs";
-/**
- * Unique operation types
- *
- * A GraphQL document is only valid if it has only one type per operation.
- */
 export function UniqueOperationTypesRule(context) {
     const schema = context.getSchema();
     const definedOperationTypes = new Map();

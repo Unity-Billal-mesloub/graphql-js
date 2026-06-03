@@ -32,13 +32,9 @@ function printSchemaDefinition(schema) {
     const queryType = schema.getQueryType();
     const mutationType = schema.getMutationType();
     const subscriptionType = schema.getSubscriptionType();
-    // Special case: When a schema has no root operation types, no valid schema
-    // definition can be printed.
     if (!queryType && !mutationType && !subscriptionType) {
         return;
     }
-    // Only print a schema definition if there is a description or if it should
-    // not be omitted because of having default type names.
     if (schema.description != null || !hasDefaultRootOperationTypes(schema)) {
         return (printDescription(schema) +
             'schema {\n' +
@@ -48,28 +44,7 @@ function printSchemaDefinition(schema) {
             '}');
     }
 }
-/**
- * GraphQL schema define root types for each type of operation. These types are
- * the same as any other type and can be named in any manner, however there is
- * a common naming convention:
- *
- * ```graphql
- *   schema {
- *     query: Query
- *     mutation: Mutation
- *     subscription: Subscription
- *   }
- * ```
- *
- * When using this naming convention, the schema description can be omitted so
- * long as these names are only used for operation types.
- *
- * Note however that if any of these default names are used elsewhere in the
- * schema but not as a root operation type, the schema definition must still
- * be printed to avoid ambiguity.
- */
 function hasDefaultRootOperationTypes(schema) {
-    /* eslint-disable eqeqeq */
     return (schema.getQueryType() == schema.getType('Query') &&
         schema.getMutationType() == schema.getType('Mutation') &&
         schema.getSubscriptionType() == schema.getType('Subscription'));
@@ -93,9 +68,7 @@ export function printType(type) {
     if (isInputObjectType(type)) {
         return printInputObject(type);
     }
-    /* c8 ignore next 3 */
-    // Not reachable, all possible types have been considered.
-    (false) || invariant(false, 'Unexpected type: ' + inspect(type));
+    invariant(false, 'Unexpected type: ' + inspect(type));
 }
 function printScalar(type) {
     return printDescription(type) + `scalar ${type}` + printSpecifiedByURL(type);
@@ -156,7 +129,6 @@ function printArgs(args, indentation = '') {
     if (args.length === 0) {
         return '';
     }
-    // If every arg does not have a description, print them on one line.
     if (args.every((arg) => arg.description == null)) {
         return '(' + args.map(printInputValue).join(', ') + ')';
     }
@@ -183,6 +155,7 @@ export function printDirective(directive) {
     return (printDescription(directive) +
         `directive ${directive}` +
         printArgs(directive.args) +
+        printDeprecated(directive.deprecationReason) +
         (directive.isRepeatable ? ' repeatable' : '') +
         ' on ' +
         directive.locations.join(' | '));

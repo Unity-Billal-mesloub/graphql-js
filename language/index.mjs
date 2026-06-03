@@ -1,15 +1,13 @@
 export { Source } from "./source.mjs";
 export { getLocation } from "./location.mjs";
 export { printLocation, printSourceLocation } from "./printLocation.mjs";
-// @see https://github.com/typescript-eslint/typescript-eslint/issues/10313
-// eslint-disable-next-line @typescript-eslint/consistent-type-exports
 export { Kind } from "./kinds.mjs";
 export { TokenKind } from "./tokenKind.mjs";
 export { Lexer } from "./lexer.mjs";
-export { parse, parseValue, parseConstValue, parseType } from "./parser.mjs";
+export { parse, parseValue, parseConstValue, parseType, parseSchemaCoordinate, } from "./parser.mjs";
 export { print } from "./printer.mjs";
 export { visit, visitInParallel, getEnterLeaveForKind, BREAK, } from "./visitor.mjs";
 export { Location, Token, OperationTypeNode } from "./ast.mjs";
-export { isDefinitionNode, isExecutableDefinitionNode, isSelectionNode, isValueNode, isConstValueNode, isTypeNode, isTypeSystemDefinitionNode, isTypeDefinitionNode, isTypeSystemExtensionNode, isTypeExtensionNode, } from "./predicates.mjs";
+export { isDefinitionNode, isExecutableDefinitionNode, isSelectionNode, isValueNode, isConstValueNode, isTypeNode, isTypeSystemDefinitionNode, isTypeDefinitionNode, isTypeSystemExtensionNode, isTypeExtensionNode, isSchemaCoordinateNode, isSubscriptionOperationDefinitionNode, } from "./predicates.mjs";
 export { DirectiveLocation } from "./directiveLocation.mjs";
 //# sourceMappingURL=index.js.map

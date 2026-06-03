@@ -4,14 +4,14 @@ exports.SafeChangeType = exports.DangerousChangeType = exports.BreakingChangeTyp
 exports.findBreakingChanges = findBreakingChanges;
 exports.findDangerousChanges = findDangerousChanges;
 exports.findSchemaChanges = findSchemaChanges;
-const inspect_js_1 = require("../jsutils/inspect.js");
-const invariant_js_1 = require("../jsutils/invariant.js");
-const keyMap_js_1 = require("../jsutils/keyMap.js");
-const printer_js_1 = require("../language/printer.js");
-const definition_js_1 = require("../type/definition.js");
-const scalars_js_1 = require("../type/scalars.js");
-const getDefaultValueAST_js_1 = require("./getDefaultValueAST.js");
-const sortValueNode_js_1 = require("./sortValueNode.js");
+const inspect_ts_1 = require("../jsutils/inspect.js");
+const invariant_ts_1 = require("../jsutils/invariant.js");
+const keyMap_ts_1 = require("../jsutils/keyMap.js");
+const printer_ts_1 = require("../language/printer.js");
+const definition_ts_1 = require("../type/definition.js");
+const scalars_ts_1 = require("../type/scalars.js");
+const getDefaultValueAST_ts_1 = require("./getDefaultValueAST.js");
+const sortValueNode_ts_1 = require("./sortValueNode.js");
 exports.BreakingChangeType = {
     TYPE_REMOVED: 'TYPE_REMOVED',
     TYPE_CHANGED_KIND: 'TYPE_CHANGED_KIND',
@@ -52,24 +52,10 @@ exports.SafeChangeType = {
     ARG_CHANGED_KIND_SAFE: 'ARG_CHANGED_KIND_SAFE',
     ARG_DEFAULT_VALUE_ADDED: 'ARG_DEFAULT_VALUE_ADDED',
 };
-/**
- * Given two schemas, returns an Array containing descriptions of all the types
- * of breaking changes covered by the other functions down below.
- *
- * @deprecated Please use `findSchemaChanges` instead. Will be removed in v18.
- */
 function findBreakingChanges(oldSchema, newSchema) {
-    // @ts-expect-error
     return findSchemaChanges(oldSchema, newSchema).filter((change) => change.type in exports.BreakingChangeType);
 }
-/**
- * Given two schemas, returns an Array containing descriptions of all the types
- * of potentially dangerous changes covered by the other functions down below.
- *
- * @deprecated Please use `findSchemaChanges` instead. Will be removed in v18.
- */
 function findDangerousChanges(oldSchema, newSchema) {
-    // @ts-expect-error
     return findSchemaChanges(oldSchema, newSchema).filter((change) => change.type in exports.DangerousChangeType);
 }
 function findSchemaChanges(oldSchema, newSchema) {
@@ -96,7 +82,7 @@ function findDirectiveChanges(oldSchema, newSchema) {
     for (const [oldDirective, newDirective] of directivesDiff.persisted) {
         const argsDiff = diff(oldDirective.args, newDirective.args);
         for (const newArg of argsDiff.added) {
-            if ((0, definition_js_1.isRequiredArgument)(newArg)) {
+            if ((0, definition_ts_1.isRequiredArgument)(newArg)) {
                 schemaChanges.push({
                     type: exports.BreakingChangeType.REQUIRED_DIRECTIVE_ARG_ADDED,
                     description: `A required argument ${newArg} was added.`,
@@ -204,7 +190,7 @@ function findTypeChanges(oldSchema, newSchema) {
     for (const oldType of typesDiff.removed) {
         schemaChanges.push({
             type: exports.BreakingChangeType.TYPE_REMOVED,
-            description: (0, scalars_js_1.isSpecifiedScalarType)(oldType)
+            description: (0, scalars_ts_1.isSpecifiedScalarType)(oldType)
                 ? `Standard scalar ${oldType} was removed because it is not referenced anymore.`
                 : `${oldType} was removed.`,
         });
@@ -222,19 +208,19 @@ function findTypeChanges(oldSchema, newSchema) {
                 description: `Description of ${oldType.name} has changed to "${newType.description}".`,
             });
         }
-        if ((0, definition_js_1.isEnumType)(oldType) && (0, definition_js_1.isEnumType)(newType)) {
+        if ((0, definition_ts_1.isEnumType)(oldType) && (0, definition_ts_1.isEnumType)(newType)) {
             schemaChanges.push(...findEnumTypeChanges(oldType, newType));
         }
-        else if ((0, definition_js_1.isUnionType)(oldType) && (0, definition_js_1.isUnionType)(newType)) {
+        else if ((0, definition_ts_1.isUnionType)(oldType) && (0, definition_ts_1.isUnionType)(newType)) {
             schemaChanges.push(...findUnionTypeChanges(oldType, newType));
         }
-        else if ((0, definition_js_1.isInputObjectType)(oldType) && (0, definition_js_1.isInputObjectType)(newType)) {
+        else if ((0, definition_ts_1.isInputObjectType)(oldType) && (0, definition_ts_1.isInputObjectType)(newType)) {
             schemaChanges.push(...findInputObjectTypeChanges(oldType, newType));
         }
-        else if ((0, definition_js_1.isObjectType)(oldType) && (0, definition_js_1.isObjectType)(newType)) {
+        else if ((0, definition_ts_1.isObjectType)(oldType) && (0, definition_ts_1.isObjectType)(newType)) {
             schemaChanges.push(...findFieldChanges(oldType, newType), ...findImplementedInterfacesChanges(oldType, newType));
         }
-        else if ((0, definition_js_1.isInterfaceType)(oldType) && (0, definition_js_1.isInterfaceType)(newType)) {
+        else if ((0, definition_ts_1.isInterfaceType)(oldType) && (0, definition_ts_1.isInterfaceType)(newType)) {
             schemaChanges.push(...findFieldChanges(oldType, newType), ...findImplementedInterfacesChanges(oldType, newType));
         }
         else if (oldType.constructor !== newType.constructor) {
@@ -250,7 +236,7 @@ function findInputObjectTypeChanges(oldType, newType) {
     const schemaChanges = [];
     const fieldsDiff = diff(Object.values(oldType.getFields()), Object.values(newType.getFields()));
     for (const newField of fieldsDiff.added) {
-        if ((0, definition_js_1.isRequiredInputField)(newField)) {
+        if ((0, definition_ts_1.isRequiredInputField)(newField)) {
             schemaChanges.push({
                 type: exports.BreakingChangeType.REQUIRED_INPUT_FIELD_ADDED,
                 description: `A required field ${newField} was added.`,
@@ -447,7 +433,7 @@ function findArgChanges(oldField, newField) {
         }
     }
     for (const newArg of argsDiff.added) {
-        if ((0, definition_js_1.isRequiredArgument)(newArg)) {
+        if ((0, definition_ts_1.isRequiredArgument)(newArg)) {
             schemaChanges.push({
                 type: exports.BreakingChangeType.REQUIRED_ARG_ADDED,
                 description: `A required argument ${newArg} was added.`,
@@ -463,84 +449,66 @@ function findArgChanges(oldField, newField) {
     return schemaChanges;
 }
 function isChangeSafeForObjectOrInterfaceField(oldType, newType) {
-    if ((0, definition_js_1.isListType)(oldType)) {
-        return (
-        // if they're both lists, make sure the underlying types are compatible
-        ((0, definition_js_1.isListType)(newType) &&
+    if ((0, definition_ts_1.isListType)(oldType)) {
+        return (((0, definition_ts_1.isListType)(newType) &&
             isChangeSafeForObjectOrInterfaceField(oldType.ofType, newType.ofType)) ||
-            // moving from nullable to non-null of the same underlying type is safe
-            ((0, definition_js_1.isNonNullType)(newType) &&
+            ((0, definition_ts_1.isNonNullType)(newType) &&
                 isChangeSafeForObjectOrInterfaceField(oldType, newType.ofType)));
     }
-    if ((0, definition_js_1.isNonNullType)(oldType)) {
-        // if they're both non-null, make sure the underlying types are compatible
-        return ((0, definition_js_1.isNonNullType)(newType) &&
+    if ((0, definition_ts_1.isNonNullType)(oldType)) {
+        return ((0, definition_ts_1.isNonNullType)(newType) &&
             isChangeSafeForObjectOrInterfaceField(oldType.ofType, newType.ofType));
     }
-    return (
-    // if they're both named types, see if their names are equivalent
-    ((0, definition_js_1.isNamedType)(newType) && oldType.name === newType.name) ||
-        // moving from nullable to non-null of the same underlying type is safe
-        ((0, definition_js_1.isNonNullType)(newType) &&
+    return (((0, definition_ts_1.isNamedType)(newType) && oldType.name === newType.name) ||
+        ((0, definition_ts_1.isNonNullType)(newType) &&
             isChangeSafeForObjectOrInterfaceField(oldType, newType.ofType)));
 }
 function isChangeSafeForInputObjectFieldOrFieldArg(oldType, newType) {
-    if ((0, definition_js_1.isListType)(oldType)) {
-        // if they're both lists, make sure the underlying types are compatible
-        return ((0, definition_js_1.isListType)(newType) &&
+    if ((0, definition_ts_1.isListType)(oldType)) {
+        return ((0, definition_ts_1.isListType)(newType) &&
             isChangeSafeForInputObjectFieldOrFieldArg(oldType.ofType, newType.ofType));
     }
-    if ((0, definition_js_1.isNonNullType)(oldType)) {
-        return (
-        // if they're both non-null, make sure the underlying types are
-        // compatible
-        ((0, definition_js_1.isNonNullType)(newType) &&
+    if ((0, definition_ts_1.isNonNullType)(oldType)) {
+        return (((0, definition_ts_1.isNonNullType)(newType) &&
             isChangeSafeForInputObjectFieldOrFieldArg(oldType.ofType, newType.ofType)) ||
-            // moving from non-null to nullable of the same underlying type is safe
-            (!(0, definition_js_1.isNonNullType)(newType) &&
+            (!(0, definition_ts_1.isNonNullType)(newType) &&
                 isChangeSafeForInputObjectFieldOrFieldArg(oldType.ofType, newType)));
     }
-    // if they're both named types, see if their names are equivalent
-    return (0, definition_js_1.isNamedType)(newType) && oldType.name === newType.name;
+    return (0, definition_ts_1.isNamedType)(newType) && oldType.name === newType.name;
 }
 function typeKindName(type) {
-    if ((0, definition_js_1.isScalarType)(type)) {
+    if ((0, definition_ts_1.isScalarType)(type)) {
         return 'a Scalar type';
     }
-    if ((0, definition_js_1.isObjectType)(type)) {
+    if ((0, definition_ts_1.isObjectType)(type)) {
         return 'an Object type';
     }
-    if ((0, definition_js_1.isInterfaceType)(type)) {
+    if ((0, definition_ts_1.isInterfaceType)(type)) {
         return 'an Interface type';
     }
-    if ((0, definition_js_1.isUnionType)(type)) {
+    if ((0, definition_ts_1.isUnionType)(type)) {
         return 'a Union type';
     }
-    if ((0, definition_js_1.isEnumType)(type)) {
+    if ((0, definition_ts_1.isEnumType)(type)) {
         return 'an Enum type';
     }
-    if ((0, definition_js_1.isInputObjectType)(type)) {
+    if ((0, definition_ts_1.isInputObjectType)(type)) {
         return 'an Input type';
     }
-    /* c8 ignore next 3 */
-    // Not reachable, all possible types have been considered.
-    (false) || (0, invariant_js_1.invariant)(false, 'Unexpected type: ' + (0, inspect_js_1.inspect)(type));
+    (0, invariant_ts_1.invariant)(false, 'Unexpected type: ' + (0, inspect_ts_1.inspect)(type));
 }
-// Since we looking only for client's observable changes we should
-// compare default values in the same representation as they are
-// represented inside introspection.
 function getDefaultValue(argOrInputField) {
-    const ast = (0, getDefaultValueAST_js_1.getDefaultValueAST)(argOrInputField);
+    const ast = (0, getDefaultValueAST_ts_1.getDefaultValueAST)(argOrInputField);
     if (ast) {
-        return (0, printer_js_1.print)((0, sortValueNode_js_1.sortValueNode)(ast));
+        return (0, printer_ts_1.print)((0, sortValueNode_ts_1.sortValueNode)(ast));
     }
 }
 function diff(oldArray, newArray) {
     const added = [];
     const removed = [];
     const persisted = [];
-    const oldMap = (0, keyMap_js_1.keyMap)(oldArray, ({ name }) => name);
-    const newMap = (0, keyMap_js_1.keyMap)(newArray, ({ name }) => name);
+    const oldMap = (0, keyMap_ts_1.keyMap)(oldArray, ({ name }) => name);
+    const newMap = (0, keyMap_ts_1.keyMap)(newArray, ({ name }) => name);
     for (const oldItem of oldArray) {
         const newItem = newMap[oldItem.name];
         if (newItem === undefined) {

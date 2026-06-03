@@ -1,7 +1,4 @@
-/* eslint-disable @typescript-eslint/no-redeclare */
-/** Name */
 export const NAME = 'Name';
-/** Document */
 export const DOCUMENT = 'Document';
 export const OPERATION_DEFINITION = 'OperationDefinition';
 export const VARIABLE_DEFINITION = 'VariableDefinition';
@@ -9,11 +6,9 @@ export const SELECTION_SET = 'SelectionSet';
 export const FIELD = 'Field';
 export const ARGUMENT = 'Argument';
 export const FRAGMENT_ARGUMENT = 'FragmentArgument';
-/** Fragments */
 export const FRAGMENT_SPREAD = 'FragmentSpread';
 export const INLINE_FRAGMENT = 'InlineFragment';
 export const FRAGMENT_DEFINITION = 'FragmentDefinition';
-/** Values */
 export const VARIABLE = 'Variable';
 export const INT = 'IntValue';
 export const FLOAT = 'FloatValue';
@@ -24,16 +19,12 @@ export const ENUM = 'EnumValue';
 export const LIST = 'ListValue';
 export const OBJECT = 'ObjectValue';
 export const OBJECT_FIELD = 'ObjectField';
-/** Directives */
 export const DIRECTIVE = 'Directive';
-/** Types */
 export const NAMED_TYPE = 'NamedType';
 export const LIST_TYPE = 'ListType';
 export const NON_NULL_TYPE = 'NonNullType';
-/** Type System Definitions */
 export const SCHEMA_DEFINITION = 'SchemaDefinition';
 export const OPERATION_TYPE_DEFINITION = 'OperationTypeDefinition';
-/** Type Definitions */
 export const SCALAR_TYPE_DEFINITION = 'ScalarTypeDefinition';
 export const OBJECT_TYPE_DEFINITION = 'ObjectTypeDefinition';
 export const FIELD_DEFINITION = 'FieldDefinition';
@@ -43,15 +34,18 @@ export const UNION_TYPE_DEFINITION = 'UnionTypeDefinition';
 export const ENUM_TYPE_DEFINITION = 'EnumTypeDefinition';
 export const ENUM_VALUE_DEFINITION = 'EnumValueDefinition';
 export const INPUT_OBJECT_TYPE_DEFINITION = 'InputObjectTypeDefinition';
-/** Directive Definitions */
 export const DIRECTIVE_DEFINITION = 'DirectiveDefinition';
-/** Type System Extensions */
 export const SCHEMA_EXTENSION = 'SchemaExtension';
-/** Type Extensions */
+export const DIRECTIVE_EXTENSION = 'DirectiveExtension';
 export const SCALAR_TYPE_EXTENSION = 'ScalarTypeExtension';
 export const OBJECT_TYPE_EXTENSION = 'ObjectTypeExtension';
 export const INTERFACE_TYPE_EXTENSION = 'InterfaceTypeExtension';
 export const UNION_TYPE_EXTENSION = 'UnionTypeExtension';
 export const ENUM_TYPE_EXTENSION = 'EnumTypeExtension';
 export const INPUT_OBJECT_TYPE_EXTENSION = 'InputObjectTypeExtension';
+export const TYPE_COORDINATE = 'TypeCoordinate';
+export const MEMBER_COORDINATE = 'MemberCoordinate';
+export const ARGUMENT_COORDINATE = 'ArgumentCoordinate';
+export const DIRECTIVE_COORDINATE = 'DirectiveCoordinate';
+export const DIRECTIVE_ARGUMENT_COORDINATE = 'DirectiveArgumentCoordinate';
 //# sourceMappingURL=kinds_.js.map

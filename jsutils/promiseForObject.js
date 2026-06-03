@@ -1,21 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.promiseForObject = promiseForObject;
-/**
- * This function transforms a JS object `ObjMap<Promise<T>>` into
- * a `Promise<ObjMap<T>>`
- *
- * This is akin to bluebird's `Promise.props`, but implemented only using
- * `Promise.all` so it will work with any implementation of ES6 promises.
- */
-async function promiseForObject(object, callback) {
+function promiseForObject(object, promiseAll) {
     const keys = Object.keys(object);
     const values = Object.values(object);
-    const resolvedValues = await Promise.all(values);
-    const resolvedObject = Object.create(null);
-    for (let i = 0; i < keys.length; ++i) {
-        resolvedObject[keys[i]] = resolvedValues[i];
-    }
-    return callback(resolvedObject);
+    return promiseAll(values).then((resolvedValues) => {
+        const resolvedObject = Object.create(null);
+        for (let i = 0; i < keys.length; ++i) {
+            resolvedObject[keys[i]] = resolvedValues[i];
+        }
+        return resolvedObject;
+    });
 }
 //# sourceMappingURL=promiseForObject.js.map

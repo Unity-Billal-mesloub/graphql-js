@@ -1,12 +1,5 @@
 import { naturalCompare } from "../jsutils/naturalCompare.mjs";
 import { Kind } from "../language/kinds.mjs";
-/**
- * Sort ValueNode.
- *
- * This function returns a sorted copy of the given ValueNode.
- *
- * @internal
- */
 export function sortValueNode(valueNode) {
     switch (valueNode.kind) {
         case Kind.OBJECT:

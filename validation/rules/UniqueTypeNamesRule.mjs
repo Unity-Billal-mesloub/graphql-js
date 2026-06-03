@@ -1,9 +1,4 @@
 import { GraphQLError } from "../../error/GraphQLError.mjs";
-/**
- * Unique type names
- *
- * A GraphQL document is only valid if all defined types have unique names.
- */
 export function UniqueTypeNamesRule(context) {
     const knownTypeNames = new Map();
     const schema = context.getSchema();

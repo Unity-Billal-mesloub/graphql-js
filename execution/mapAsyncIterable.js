@@ -1,63 +1,35 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mapAsyncIterable = mapAsyncIterable;
-/**
- * Given an AsyncIterable and a callback function, return an AsyncIterator
- * which produces values mapped via calling the callback function.
- */
-function mapAsyncIterable(iterable, callback, onDone) {
+const isPromise_ts_1 = require("../jsutils/isPromise.js");
+const withConcurrentAbruptClose_ts_1 = require("./withConcurrentAbruptClose.js");
+function mapAsyncIterable(iterable, callback) {
     const iterator = iterable[Symbol.asyncIterator]();
-    async function mapResult(promise) {
-        let value;
-        try {
-            const result = await promise;
-            if (result.done) {
-                onDone?.();
-                return result;
-            }
-            value = result.value;
-        }
-        catch (error) {
-            onDone?.();
-            throw error;
-        }
-        try {
-            return { value: await callback(value), done: false };
-        }
-        catch (error) {
-            /* c8 ignore start */
-            // FIXME: add test case
-            if (typeof iterator.return === 'function') {
-                try {
-                    await iterator.return();
-                }
-                catch (_e) {
-                    /* ignore error */
-                }
-            }
-            throw error;
-            /* c8 ignore stop */
-        }
+    const returnFn = iterator.return?.bind(iterator);
+    const throwFn = iterator.throw?.bind(iterator);
+    const onReturn = returnFn
+        ? () => callIgnoringErrors(returnFn)
+        : () => Promise.resolve();
+    const onThrow = throwFn
+        ? (reason) => callIgnoringErrors(() => throwFn(reason))
+        : onReturn;
+    return (0, withConcurrentAbruptClose_ts_1.withConcurrentAbruptClose)(mapAsyncIterableImpl(iterable, callback), onReturn, onThrow);
+}
+async function callIgnoringErrors(fn) {
+    try {
+        await fn();
     }
-    return {
-        async next() {
-            return mapResult(iterator.next());
-        },
-        async return() {
-            // If iterator.return() does not exist, then type R must be undefined.
-            return typeof iterator.return === 'function'
-                ? mapResult(iterator.return())
-                : { value: undefined, done: true };
-        },
-        async throw(error) {
-            if (typeof iterator.throw === 'function') {
-                return mapResult(iterator.throw(error));
-            }
-            throw error;
-        },
-        [Symbol.asyncIterator]() {
-            return this;
-        },
-    };
+    catch {
+    }
+}
+async function* mapAsyncIterableImpl(iterable, mapFn) {
+    for await (const value of iterable) {
+        const result = mapFn(value);
+        if ((0, isPromise_ts_1.isPromise)(result)) {
+            yield await result;
+            continue;
+        }
+        yield result;
+    }
 }
 //# sourceMappingURL=mapAsyncIterable.js.map

@@ -9,18 +9,6 @@ import { assertSchema, GraphQLSchema } from "../type/schema.mjs";
 import { assertValidSDLExtension } from "../validation/validate.mjs";
 import { getDirectiveValues } from "../execution/values.mjs";
 import { mapSchemaConfig, SchemaElementKind } from "./mapSchemaConfig.mjs";
-/**
- * Produces a new schema given an existing schema and a document which may
- * contain GraphQL type extensions and definitions. The original schema will
- * remain unaltered.
- *
- * Because a schema represents a graph of references, a schema cannot be
- * extended without effectively making an entire copy. We do not know until it's
- * too late if subgraphs remain unchanged.
- *
- * This algorithm copies the provided schema, applying extensions while
- * producing the copy. The original schema remains unaltered.
- */
 export function extendSchema(schema, documentAST, options) {
     assertSchema(schema);
     if (options?.assumeValid !== true && options?.assumeValidSDL !== true) {
@@ -32,11 +20,7 @@ export function extendSchema(schema, documentAST, options) {
         ? schema
         : new GraphQLSchema(extendedConfig);
 }
-/**
- * @internal
- */
 export function extendSchemaImpl(schemaConfig, documentAST, options) {
-    // Collect the type definitions and extensions found in the document.
     const typeDefs = [];
     const scalarExtensions = new AccumulatorMap();
     const objectExtensions = new AccumulatorMap();
@@ -44,11 +28,9 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
     const unionExtensions = new AccumulatorMap();
     const enumExtensions = new AccumulatorMap();
     const inputObjectExtensions = new AccumulatorMap();
-    // New directives and types are separate because a directives and types can
-    // have the same name. For example, a type named "skip".
+    const directiveExtensions = new AccumulatorMap();
     const directiveDefs = [];
     let schemaDef;
-    // Schema extensions are collected which may add additional operation types.
     const schemaExtensions = [];
     let isSchemaChanged = false;
     for (const def of documentAST.definitions) {
@@ -62,7 +44,9 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
             case Kind.DIRECTIVE_DEFINITION:
                 directiveDefs.push(def);
                 break;
-            // Type Definitions
+            case Kind.DIRECTIVE_EXTENSION:
+                directiveExtensions.add(def.name.value, def);
+                break;
             case Kind.SCALAR_TYPE_DEFINITION:
             case Kind.OBJECT_TYPE_DEFINITION:
             case Kind.INTERFACE_TYPE_DEFINITION:
@@ -71,7 +55,6 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
             case Kind.INPUT_OBJECT_TYPE_DEFINITION:
                 typeDefs.push(def);
                 break;
-            // Type System Extensions
             case Kind.SCALAR_TYPE_EXTENSION:
                 scalarExtensions.add(def.name.value, def);
                 break;
@@ -95,8 +78,6 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
         }
         isSchemaChanged = true;
     }
-    // If this document contains no new types, extensions, or directives then
-    // return the same unmodified GraphQLSchema instance.
     if (!isSchemaChanged) {
         return schemaConfig;
     }
@@ -109,24 +90,21 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
                     setNamedType(type);
                 }
                 const operationTypes = {
-                    // Get the extended root operation types.
                     query: config.query &&
                         getNamedType(config.query.name),
                     mutation: config.mutation &&
                         getNamedType(config.mutation.name),
                     subscription: config.subscription &&
                         getNamedType(config.subscription.name),
-                    // Then, incorporate schema definition and all schema extensions.
                     ...(schemaDef && getOperationTypes([schemaDef])),
                     ...getOperationTypes(schemaExtensions),
                 };
-                // Then produce and return a Schema config with these types.
                 return {
                     description: schemaDef?.description?.value ?? config.description,
                     ...operationTypes,
                     types: getNamedTypes(),
                     directives: [
-                        ...config.directives,
+                        ...config.directives.map(extendDirective),
                         ...directiveDefs.map(buildDirective),
                     ],
                     extensions: config.extensions,
@@ -213,10 +191,6 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
             for (const node of nodes) {
                 const operationTypesNodes = node.operationTypes ?? [];
                 for (const operationType of operationTypesNodes) {
-                    // Note: While this could make early assertions to get the correctly
-                    // typed values below, that would throw immediately while type system
-                    // validation with validateSchema() will produce more actionable results.
-                    // @ts-expect-error
                     opTypes[operationType.operation] = namedTypeFromAST(operationType.type);
                 }
             }
@@ -225,7 +199,8 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
         function namedTypeFromAST(node) {
             const name = node.name.value;
             const type = getNamedType(name);
-            (type !== undefined) || invariant(false, `Unknown type: "${name}".`);
+            if (!(type !== undefined))
+                invariant(false, `Unknown type: "${name}".`);
             return type;
         }
         function typeFromAST(node) {
@@ -238,14 +213,35 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
             return namedTypeFromAST(node);
         }
         function buildDirective(node) {
+            const extensionASTNodes = directiveExtensions.get(node.name.value) ?? [];
+            const deprecationReason = getDeprecationReason(node) ??
+                extensionASTNodes
+                    .map((extensionNode) => getDeprecationReason(extensionNode))
+                    .find((reason) => reason != null);
             return new GraphQLDirective({
                 name: node.name.value,
                 description: node.description?.value,
-                // @ts-expect-error
                 locations: node.locations.map(({ value }) => value),
                 isRepeatable: node.repeatable,
                 args: buildArgumentMap(node.arguments),
+                deprecationReason,
                 astNode: node,
+                extensionASTNodes,
+            });
+        }
+        function extendDirective(directive) {
+            const extensionASTNodes = directiveExtensions.get(directive.name) ?? [];
+            if (extensionASTNodes.length === 0) {
+                return directive;
+            }
+            const deprecationReason = directive.deprecationReason ??
+                extensionASTNodes
+                    .map((extensionNode) => getDeprecationReason(extensionNode))
+                    .find((reason) => reason != null);
+            return new GraphQLDirective({
+                ...directive.toConfig(),
+                deprecationReason,
+                extensionASTNodes: directive.extensionASTNodes.concat(extensionASTNodes),
             });
         }
         function buildFieldMap(nodes) {
@@ -254,9 +250,6 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
                 const nodeFields = node.fields ?? [];
                 for (const field of nodeFields) {
                     fieldConfigMap[field.name.value] = {
-                        // Note: While this could make assertions to get the correctly typed
-                        // value, that would throw immediately while type system validation
-                        // with validateSchema() will produce more actionable results.
                         type: typeFromAST(field.type),
                         description: field.description?.value,
                         args: buildArgumentMap(field.arguments),
@@ -271,9 +264,6 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
             const argsNodes = args ?? [];
             const argConfigMap = Object.create(null);
             for (const arg of argsNodes) {
-                // Note: While this could make assertions to get the correctly typed
-                // value, that would throw immediately while type system validation
-                // with validateSchema() will produce more actionable results.
                 const type = typeFromAST(arg.type);
                 argConfigMap[arg.name.value] = {
                     type,
@@ -290,9 +280,6 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
             for (const node of nodes) {
                 const fieldsNodes = node.fields ?? [];
                 for (const field of fieldsNodes) {
-                    // Note: While this could make assertions to get the correctly typed
-                    // value, that would throw immediately while type system validation
-                    // with validateSchema() will produce more actionable results.
                     const type = typeFromAST(field.type);
                     inputFieldMap[field.name.value] = {
                         type,
@@ -320,17 +307,9 @@ export function extendSchemaImpl(schemaConfig, documentAST, options) {
             return enumValueMap;
         }
         function buildInterfaces(nodes) {
-            // Note: While this could make assertions to get the correctly typed
-            // values below, that would throw immediately while type system
-            // validation with validateSchema() will produce more actionable results.
-            // @ts-expect-error
             return nodes.flatMap((node) => node.interfaces?.map(namedTypeFromAST) ?? []);
         }
         function buildUnionTypes(nodes) {
-            // Note: While this could make assertions to get the correctly typed
-            // values below, that would throw immediately while type system
-            // validation with validateSchema() will produce more actionable results.
-            // @ts-expect-error
             return nodes.flatMap((node) => node.types?.map(namedTypeFromAST) ?? []);
         }
         function buildNamedType(astNode) {
@@ -412,26 +391,14 @@ const stdTypeMap = new Map([...specifiedScalarTypes, ...introspectionTypes].map(
     type.name,
     type,
 ]));
-/**
- * Given a field or enum value node, returns the string value for the
- * deprecation reason.
- */
 function getDeprecationReason(node) {
     const deprecated = getDirectiveValues(GraphQLDeprecatedDirective, node);
-    // @ts-expect-error validated by `getDirectiveValues`
     return deprecated?.reason;
 }
-/**
- * Given a scalar node, returns the string value for the specifiedByURL.
- */
 function getSpecifiedByURL(node) {
     const specifiedBy = getDirectiveValues(GraphQLSpecifiedByDirective, node);
-    // @ts-expect-error validated by `getDirectiveValues`
     return specifiedBy?.url;
 }
-/**
- * Given an input object node, returns if the node should be OneOf.
- */
 function isOneOf(node) {
     return Boolean(getDirectiveValues(GraphQLOneOfDirective, node));
 }

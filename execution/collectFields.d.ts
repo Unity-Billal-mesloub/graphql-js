@@ -1,29 +1,36 @@
-import type { ObjMap, ReadOnlyObjMap } from '../jsutils/ObjMap.js';
-import type { ConstValueNode, DirectiveNode, FieldNode, FragmentDefinitionNode, SelectionSetNode } from '../language/ast.js';
-import type { GraphQLObjectType } from '../type/definition.js';
-import type { GraphQLSchema } from '../type/schema.js';
-import type { GraphQLVariableSignature } from './getVariableSignature.js';
-import type { VariableValues } from './values.js';
+import type { ObjMap, ReadOnlyObjMap } from "../jsutils/ObjMap.js";
+import type { DirectiveNode, FieldNode, FragmentDefinitionNode, SelectionSetNode, ValueNode } from "../language/ast.js";
+import type { GraphQLObjectType } from "../type/definition.js";
+import type { GraphQLSchema } from "../type/schema.js";
+import type { GraphQLVariableSignature } from "./getVariableSignature.js";
+import type { VariableValues } from "./values.js";
+/** @internal */
 export interface DeferUsage {
     label: string | undefined;
     parentDeferUsage: DeferUsage | undefined;
 }
+/** @internal */
 export interface FragmentVariableValues {
     readonly sources: ReadOnlyObjMap<FragmentVariableValueSource>;
     readonly coerced: ReadOnlyObjMap<unknown>;
 }
-interface FragmentVariableValueSource {
+/** @internal */
+export interface FragmentVariableValueSource {
     readonly signature: GraphQLVariableSignature;
-    readonly value?: ConstValueNode;
+    readonly value?: ValueNode;
     readonly fragmentVariableValues?: FragmentVariableValues;
 }
+/** @internal */
 export interface FieldDetails {
     node: FieldNode;
     deferUsage?: DeferUsage | undefined;
     fragmentVariableValues?: FragmentVariableValues | undefined;
 }
+/** @internal */
 export type FieldDetailsList = ReadonlyArray<FieldDetails>;
+/** @internal */
 export type GroupedFieldSet = ReadonlyMap<string, FieldDetailsList>;
+/** @internal */
 export interface FragmentDetails {
     definition: FragmentDefinitionNode;
     variableSignatures?: ObjMap<GraphQLVariableSignature> | undefined;
@@ -56,4 +63,3 @@ export declare function collectSubfields(schema: GraphQLSchema, fragments: ObjMa
     groupedFieldSet: GroupedFieldSet;
     newDeferUsages: ReadonlyArray<DeferUsage>;
 };
-export {};

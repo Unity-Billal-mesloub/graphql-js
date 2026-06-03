@@ -1,11 +1,6 @@
 import { Kind } from "../language/kinds.mjs";
 import { visit } from "../language/visitor.mjs";
 import { TypeInfo, visitWithTypeInfo } from "../utilities/TypeInfo.mjs";
-/**
- * An instance of this class is passed as the "this" context to all validators,
- * allowing access to commonly useful contextual information from within a
- * validation rule.
- */
 export class ASTValidationContext {
     constructor(ast, onError) {
         this._ast = ast;
@@ -135,7 +130,7 @@ export class ValidationContext extends ASTValidationContext {
                             node: variable,
                             type: typeInfo.getInputType(),
                             parentType: typeInfo.getParentInputType(),
-                            defaultValue: undefined, // fragment variables have a variable default but no location default, which is what this default value represents
+                            defaultValue: undefined,
                             fragmentVariableDefinition,
                         });
                     }

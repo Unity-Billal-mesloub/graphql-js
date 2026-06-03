@@ -1,8 +1,4 @@
-/**
- * The set of allowed directive location values.
- */
 export const DirectiveLocation = {
-    /** Request Definitions */
     QUERY: 'QUERY',
     MUTATION: 'MUTATION',
     SUBSCRIPTION: 'SUBSCRIPTION',
@@ -11,7 +7,7 @@ export const DirectiveLocation = {
     FRAGMENT_SPREAD: 'FRAGMENT_SPREAD',
     INLINE_FRAGMENT: 'INLINE_FRAGMENT',
     VARIABLE_DEFINITION: 'VARIABLE_DEFINITION',
-    /** Type System Definitions */
+    FRAGMENT_VARIABLE_DEFINITION: 'FRAGMENT_VARIABLE_DEFINITION',
     SCHEMA: 'SCHEMA',
     SCALAR: 'SCALAR',
     OBJECT: 'OBJECT',
@@ -23,6 +19,6 @@ export const DirectiveLocation = {
     ENUM_VALUE: 'ENUM_VALUE',
     INPUT_OBJECT: 'INPUT_OBJECT',
     INPUT_FIELD_DEFINITION: 'INPUT_FIELD_DEFINITION',
-    FRAGMENT_VARIABLE_DEFINITION: 'FRAGMENT_VARIABLE_DEFINITION',
+    DIRECTIVE_DEFINITION: 'DIRECTIVE_DEFINITION',
 };
 //# sourceMappingURL=directiveLocation.js.map

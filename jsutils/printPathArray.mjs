@@ -1,6 +1,3 @@
-/**
- * Build a string describing the path.
- */
 export function printPathArray(path) {
     if (path.length === 0) {
         return '';

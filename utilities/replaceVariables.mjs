@@ -1,13 +1,5 @@
 import { Kind } from "../language/kinds.mjs";
 import { valueToLiteral } from "./valueToLiteral.mjs";
-/**
- * Replaces any Variables found within an AST Value literal with literals
- * supplied from a map of variable values, or removed if no variable replacement
- * exists, returning a constant value.
- *
- * Used primarily to ensure only complete constant values are used during input
- * coercion of custom scalars which accept complex literals.
- */
 export function replaceVariables(valueNode, variableValues, fragmentVariableValues) {
     switch (valueNode.kind) {
         case Kind.VARIABLE: {

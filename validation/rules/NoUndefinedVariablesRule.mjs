@@ -1,12 +1,4 @@
 import { GraphQLError } from "../../error/GraphQLError.mjs";
-/**
- * No undefined variables
- *
- * A GraphQL operation is only valid if all variables encountered, both directly
- * and via fragment spreads, are defined by that operation.
- *
- * See https://spec.graphql.org/draft/#sec-All-Variable-Uses-Defined
- */
 export function NoUndefinedVariablesRule(context) {
     return {
         OperationDefinition(operation) {

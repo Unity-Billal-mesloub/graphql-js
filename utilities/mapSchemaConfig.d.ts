@@ -1,8 +1,10 @@
-import type { GraphQLArgumentNormalizedConfig, GraphQLEnumTypeNormalizedConfig, GraphQLEnumValueConfig, GraphQLFieldNormalizedConfig, GraphQLInputFieldConfig, GraphQLInputObjectTypeNormalizedConfig, GraphQLInterfaceTypeNormalizedConfig, GraphQLNamedType, GraphQLObjectTypeNormalizedConfig, GraphQLScalarTypeNormalizedConfig, GraphQLUnionTypeNormalizedConfig } from '../type/definition.js';
-import type { GraphQLDirectiveNormalizedConfig } from '../type/directives.js';
-import type { GraphQLSchemaNormalizedConfig } from '../type/schema.js';
+import type { GraphQLArgumentNormalizedConfig, GraphQLEnumTypeNormalizedConfig, GraphQLEnumValueConfig, GraphQLFieldNormalizedConfig, GraphQLInputFieldConfig, GraphQLInputObjectTypeNormalizedConfig, GraphQLInterfaceTypeNormalizedConfig, GraphQLNamedType, GraphQLObjectTypeNormalizedConfig, GraphQLScalarTypeNormalizedConfig, GraphQLUnionTypeNormalizedConfig } from "../type/definition.js";
+import type { GraphQLDirectiveNormalizedConfig } from "../type/directives.js";
+import type { GraphQLSchemaNormalizedConfig } from "../type/schema.js";
 /**
  * The set of GraphQL Schema Elements.
+ *
+ * @internal
  */
 export declare const SchemaElementKind: {
     readonly SCHEMA: "SCHEMA";
@@ -18,7 +20,9 @@ export declare const SchemaElementKind: {
     readonly INPUT_FIELD: "INPUT_FIELD";
     readonly DIRECTIVE: "DIRECTIVE";
 };
+/** @internal */
 type SchemaElementKind = (typeof SchemaElementKind)[keyof typeof SchemaElementKind];
+/** @internal */
 export interface MappedSchemaContext {
     getNamedType: (typeName: string) => GraphQLNamedType;
     setNamedType: (type: GraphQLNamedType) => void;
@@ -30,7 +34,7 @@ type EnsureThunks<T, ThunkFields extends keyof T> = {
 };
 type GraphQLObjectTypeMappedConfig = EnsureThunks<GraphQLObjectTypeNormalizedConfig<any, any>, 'interfaces' | 'fields'>;
 type GraphQLInterfaceTypeMappedConfig = EnsureThunks<GraphQLInterfaceTypeNormalizedConfig<any, any>, 'interfaces' | 'fields'>;
-type GraphQLUnionTypeMappedConfig = EnsureThunks<GraphQLUnionTypeNormalizedConfig, 'types'>;
+type GraphQLUnionTypeMappedConfig = EnsureThunks<GraphQLUnionTypeNormalizedConfig<any, any>, 'types'>;
 type GraphQLEnumTypeMappedConfig = EnsureThunks<GraphQLEnumTypeNormalizedConfig, 'values'>;
 type GraphQLInputObjectTypeMappedConfig = EnsureThunks<GraphQLInputObjectTypeNormalizedConfig, 'fields'>;
 type ScalarTypeConfigMapper = (scalarConfig: GraphQLScalarTypeMappedConfig) => GraphQLScalarTypeMappedConfig;
@@ -45,6 +49,7 @@ type InputObjectTypeConfigMapper = (inputObjectConfig: GraphQLInputObjectTypeMap
 type InputFieldConfigMapper = (inputFieldConfig: GraphQLInputFieldConfig, inputFieldName: string, inputObjectTypeName: string) => GraphQLInputFieldConfig;
 type DirectiveConfigMapper = (directiveConfig: GraphQLDirectiveNormalizedConfig) => GraphQLDirectiveNormalizedConfig;
 type SchemaConfigMapper = (originalSchemaConfig: GraphQLSchemaNormalizedConfig) => GraphQLSchemaNormalizedConfig;
+/** @internal */
 export interface ConfigMapperMap {
     [SchemaElementKind.SCALAR]?: ScalarTypeConfigMapper;
     [SchemaElementKind.OBJECT]?: ObjectTypeConfigMapper;
@@ -59,8 +64,6 @@ export interface ConfigMapperMap {
     [SchemaElementKind.DIRECTIVE]?: DirectiveConfigMapper;
     [SchemaElementKind.SCHEMA]?: SchemaConfigMapper;
 }
-/**
- * @internal
- */
+/** @internal */
 export declare function mapSchemaConfig(schemaConfig: GraphQLSchemaNormalizedConfig, configMapperMapFn: (context: MappedSchemaContext) => ConfigMapperMap): GraphQLSchemaNormalizedConfig;
 export {};

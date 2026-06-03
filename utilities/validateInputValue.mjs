@@ -5,15 +5,12 @@ import { isObjectLike } from "../jsutils/isObjectLike.mjs";
 import { keyMap } from "../jsutils/keyMap.mjs";
 import { addPath, pathToArray } from "../jsutils/Path.mjs";
 import { suggestionList } from "../jsutils/suggestionList.mjs";
+import { ensureGraphQLError } from "../error/ensureGraphQLError.mjs";
 import { GraphQLError } from "../error/GraphQLError.mjs";
 import { Kind } from "../language/kinds.mjs";
 import { print } from "../language/printer.mjs";
 import { assertLeafType, isInputObjectType, isListType, isNonNullType, isRequiredInputField, } from "../type/definition.mjs";
 import { replaceVariables } from "./replaceVariables.mjs";
-/**
- * Validate that the provided input value is allowed for this type, collecting
- * all errors via a callback function.
- */
 export function validateInputValue(inputValue, type, onError, hideSuggestions) {
     return validateInputValueImpl(inputValue, type, onError, hideSuggestions, undefined);
 }
@@ -34,7 +31,6 @@ function validateInputValueImpl(inputValue, type, onError, hideSuggestions, path
     }
     if (isListType(type)) {
         if (!isIterableObject(inputValue)) {
-            // Lists accept a non-list value as a list of one.
             validateInputValueImpl(inputValue, type.ofType, onError, hideSuggestions, path);
         }
         else {
@@ -45,7 +41,7 @@ function validateInputValueImpl(inputValue, type, onError, hideSuggestions, path
         }
     }
     else if (isInputObjectType(type)) {
-        if (!isObjectLike(inputValue)) {
+        if (!isObjectLike(inputValue) || Array.isArray(inputValue)) {
             reportInvalidValue(onError, `Expected value of type "${type}" to be an object, found: ${inspect(inputValue)}.`, path);
             return;
         }
@@ -61,24 +57,28 @@ function validateInputValueImpl(inputValue, type, onError, hideSuggestions, path
                 validateInputValueImpl(fieldValue, field.type, onError, hideSuggestions, addPath(path, field.name, type.name));
             }
         }
-        const fields = Object.keys(inputValue);
-        // Ensure every provided field is defined.
-        for (const fieldName of fields) {
+        const fields = [];
+        for (const fieldName of Object.keys(inputValue)) {
+            if (inputValue[fieldName] === undefined) {
+                continue;
+            }
             if (!Object.hasOwn(fieldDefs, fieldName)) {
                 const suggestion = hideSuggestions
                     ? ''
                     : didYouMean(suggestionList(fieldName, Object.keys(fieldDefs)));
                 reportInvalidValue(onError, `Expected value of type "${type}" not to include unknown field "${fieldName}"${suggestion ? `.${suggestion} Found` : ', found'}: ${inspect(inputValue)}.`, path);
+                continue;
             }
+            fields.push(fieldName);
         }
         if (type.isOneOf) {
             if (fields.length !== 1) {
-                reportInvalidValue(onError, `Exactly one key must be specified for OneOf type "${type}".`, path);
+                reportInvalidValue(onError, getOneOfInputObjectErrorMessage(type), path);
             }
             const field = fields[0];
             const value = inputValue[field];
             if (value === null) {
-                reportInvalidValue(onError, `Field "${field}" for OneOf type "${type}" must be non-null.`, path);
+                reportInvalidValue(onError, getOneOfInputObjectErrorMessage(type), addPath(path, field, type.name));
             }
         }
     }
@@ -98,22 +98,14 @@ function validateInputValueImpl(inputValue, type, onError, hideSuggestions, path
         }
         if (result === undefined) {
             reportInvalidValue(onError, `Expected value of type "${type}"${caughtError != null
-                ? `, but encountered error "${caughtError.message != null && caughtError.message !== '' ? caughtError.message : caughtError}"; found`
-                : ', found'}: ${inspect(inputValue)}.`, path, caughtError);
+                ? `, but encountered error "${getCaughtErrorMessage(caughtError)}"; found`
+                : ', found'}: ${inspect(inputValue)}.`, path, ensureGraphQLError(caughtError));
         }
     }
 }
 function reportInvalidValue(onError, message, path, originalError) {
     onError(new GraphQLError(message, { originalError }), pathToArray(path));
 }
-/**
- * Validate that the provided input literal is allowed for this type, collecting
- * all errors via a callback function.
- *
- * If variable values are not provided, the literal is validated statically
- * (not assuming that those variables are missing runtime values).
- */
-// eslint-disable-next-line @typescript-eslint/max-params
 export function validateInputLiteral(valueNode, type, onError, variables, fragmentVariableValues, hideSuggestions) {
     const context = {
         static: !variables && !fragmentVariableValues,
@@ -126,8 +118,6 @@ export function validateInputLiteral(valueNode, type, onError, variables, fragme
 function validateInputLiteralImpl(context, valueNode, type, hideSuggestions, path) {
     if (valueNode.kind === Kind.VARIABLE) {
         if (context.static) {
-            // If no variable values are provided, this is being validated statically,
-            // and cannot yet produce any validation errors for variables.
             return;
         }
         const scopedVariableValues = getScopedVariableValues(context, valueNode);
@@ -140,8 +130,6 @@ function validateInputLiteralImpl(context, valueNode, type, hideSuggestions, pat
                 reportInvalidLiteral(context.onError, `Expected variable "$${valueNode.name.value}" provided to non-null type "${type}" not to be null.`, valueNode, path);
             }
         }
-        // Note: This does no further checking that this variable is correct.
-        // This assumes this variable usage has already been validated.
         return;
     }
     if (isNonNullType(type)) {
@@ -156,7 +144,6 @@ function validateInputLiteralImpl(context, valueNode, type, hideSuggestions, pat
     }
     if (isListType(type)) {
         if (valueNode.kind !== Kind.LIST) {
-            // Lists accept a non-list value as a list of one.
             validateInputLiteralImpl(context, valueNode, type.ofType, hideSuggestions, path);
         }
         else {
@@ -202,7 +189,7 @@ function validateInputLiteralImpl(context, valueNode, type, hideSuggestions, pat
             }
         }
         const fields = valueNode.fields;
-        // Ensure every provided field is defined.
+        const knownFields = [];
         for (const fieldNode of fields) {
             const fieldName = fieldNode.name.value;
             if (!Object.hasOwn(fieldDefs, fieldName)) {
@@ -211,17 +198,20 @@ function validateInputLiteralImpl(context, valueNode, type, hideSuggestions, pat
                     : didYouMean(suggestionList(fieldName, Object.keys(fieldDefs)));
                 reportInvalidLiteral(context.onError, `Expected value of type "${type}" not to include unknown field "${fieldName}"${suggestion ? `.${suggestion} Found` : ', found'}: ${print(valueNode)}.`, fieldNode, path);
             }
+            else {
+                knownFields.push(fieldNode);
+            }
         }
         if (type.isOneOf) {
-            const isNotExactlyOneField = fields.length !== 1;
+            const isNotExactlyOneField = knownFields.length !== 1;
             if (isNotExactlyOneField) {
-                reportInvalidLiteral(context.onError, `OneOf Input Object "${type}" must specify exactly one key.`, valueNode, path);
+                reportInvalidLiteral(context.onError, getOneOfInputObjectErrorMessage(type), valueNode, path);
                 return;
             }
-            const fieldValueNode = fields[0].value;
+            const fieldValueNode = knownFields[0].value;
             if (fieldValueNode.kind === Kind.NULL) {
-                const fieldName = fields[0].name.value;
-                reportInvalidLiteral(context.onError, `Field "${type}.${fieldName}" used for OneOf Input Object must be non-null.`, valueNode, addPath(path, fieldName, undefined));
+                const fieldName = knownFields[0].name.value;
+                reportInvalidLiteral(context.onError, getOneOfInputObjectErrorMessage(type), valueNode, addPath(path, fieldName, undefined));
             }
         }
     }
@@ -243,8 +233,8 @@ function validateInputLiteralImpl(context, valueNode, type, hideSuggestions, pat
         }
         if (result === undefined) {
             reportInvalidLiteral(context.onError, `Expected value of type "${type}"${caughtError != null
-                ? `, but encountered error "${caughtError.message != null && caughtError.message !== '' ? caughtError.message : caughtError}"; found`
-                : ', found'}: ${print(valueNode)}.`, valueNode, path, caughtError);
+                ? `, but encountered error "${getCaughtErrorMessage(caughtError)}"; found`
+                : ', found'}: ${print(valueNode)}.`, valueNode, path, ensureGraphQLError(caughtError));
         }
     }
 }
@@ -256,6 +246,21 @@ function getScopedVariableValues(context, valueNode) {
         : variables;
 }
 function reportInvalidLiteral(onError, message, valueNode, path, originalError) {
-    onError(new GraphQLError(message, { nodes: valueNode, originalError }), pathToArray(path));
+    onError(new GraphQLError(message, {
+        nodes: valueNode,
+        originalError,
+    }), pathToArray(path));
+}
+function getCaughtErrorMessage(caughtError) {
+    if (isObjectLike(caughtError)) {
+        const message = caughtError.message;
+        if (typeof message === 'string' && message !== '') {
+            return message;
+        }
+    }
+    return String(caughtError);
+}
+function getOneOfInputObjectErrorMessage(type) {
+    return `Within OneOf Input Object type "${type}", exactly one field must be specified, and the value for that field must be non-null.`;
 }
 //# sourceMappingURL=validateInputValue.js.map

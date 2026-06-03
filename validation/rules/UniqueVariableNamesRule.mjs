@@ -1,10 +1,5 @@
 import { groupBy } from "../../jsutils/groupBy.mjs";
 import { GraphQLError } from "../../error/GraphQLError.mjs";
-/**
- * Unique variable names
- *
- * A GraphQL operation is only valid if all its variables are uniquely named.
- */
 export function UniqueVariableNamesRule(context) {
     return {
         OperationDefinition(operationNode) {

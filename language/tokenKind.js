@@ -1,10 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TokenKind = void 0;
-/**
- * An exported enum describing the different kinds of tokens that the
- * lexer emits.
- */
 exports.TokenKind = {
     SOF: '<SOF>',
     EOF: '<EOF>',
@@ -13,6 +9,7 @@ exports.TokenKind = {
     AMP: '&',
     PAREN_L: '(',
     PAREN_R: ')',
+    DOT: '.',
     SPREAD: '...',
     COLON: ':',
     EQUALS: '=',
