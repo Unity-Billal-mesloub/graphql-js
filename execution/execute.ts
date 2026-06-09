@@ -252,7 +252,10 @@ function executeIgnoringIncrementalImpl(
  * import assert from 'node:assert';
  * import { parse } from 'graphql/language';
  * import { buildSchema } from 'graphql/utilities';
- * import { executeRootSelectionSet, validateExecutionArgs } from 'graphql/execution';
+ * import {
+ *   executeRootSelectionSet,
+ *   validateExecutionArgs,
+ * } from 'graphql/execution';
  *
  * const schema = buildSchema('type Query { greeting: String }');
  * const validatedArgs = validateExecutionArgs({
@@ -358,7 +361,10 @@ export function executeSync(args: ExecutionArgs): ExecutionResult {
  * import assert from 'node:assert';
  * import { parse } from 'graphql/language';
  * import { buildSchema } from 'graphql/utilities';
- * import { executeSubscriptionEvent, validateSubscriptionArgs } from 'graphql/execution';
+ * import {
+ *   executeSubscriptionEvent,
+ *   validateSubscriptionArgs,
+ * } from 'graphql/execution';
  *
  * const schema = buildSchema(`
  *   type Query {
@@ -575,7 +581,10 @@ function subscribeImpl(
  * import assert from 'node:assert';
  * import { parse } from 'graphql/language';
  * import { buildSchema } from 'graphql/utilities';
- * import { createSourceEventStream, validateSubscriptionArgs } from 'graphql/execution';
+ * import {
+ *   createSourceEventStream,
+ *   validateSubscriptionArgs,
+ * } from 'graphql/execution';
  *
  * async function* greetings() {
  *   yield { greeting: 'Hello' };
@@ -948,7 +957,10 @@ export const defaultFieldResolver: GraphQLFieldResolver<unknown, unknown> =
  * import assert from 'node:assert';
  * import { parse } from 'graphql/language';
  * import { buildSchema } from 'graphql/utilities';
- * import { mapSourceToResponseEvent, validateSubscriptionArgs } from 'graphql/execution';
+ * import {
+ *   mapSourceToResponseEvent,
+ *   validateSubscriptionArgs,
+ * } from 'graphql/execution';
  *
  * async function* events() {
  *   yield { greeting: 'Hello' };

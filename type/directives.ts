@@ -148,7 +148,7 @@ export class GraphQLDirective implements GraphQLSchemaElement {
    *   deprecationReason: 'Use @cache instead.',
    *   extensions: { scope: 'cache' },
    *   astNode: definition,
-   *   extensionASTNodes: [ document.definitions[1] ],
+   *   extensionASTNodes: [document.definitions[1]],
    * });
    *
    * cacheControl.name; // => 'cacheControl'

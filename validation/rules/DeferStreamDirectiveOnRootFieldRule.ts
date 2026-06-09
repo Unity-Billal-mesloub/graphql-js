@@ -26,7 +26,10 @@ import type { ValidationContext } from '../ValidationContext.ts';
  * ```ts
  * import { parse } from 'graphql/language';
  * import { buildSchema } from 'graphql/utilities';
- * import { validate, DeferStreamDirectiveOnRootFieldRule } from 'graphql/validation';
+ * import {
+ *   validate,
+ *   DeferStreamDirectiveOnRootFieldRule,
+ * } from 'graphql/validation';
  *
  * const schema = buildSchema(`
  *   type Query {

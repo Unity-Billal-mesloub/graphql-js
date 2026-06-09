@@ -217,11 +217,7 @@ export class GraphQLSchema {
    * @example
    * ```ts
    * // Create a schema with the required query root.
-   * import {
-   *   GraphQLObjectType,
-   *   GraphQLSchema,
-   *   GraphQLString,
-   * } from 'graphql/type';
+   * import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql/type';
    *
    * const Query = new GraphQLObjectType({
    *   name: 'Query',
@@ -293,7 +289,7 @@ export class GraphQLSchema {
    *   directives: [authDirective],
    *   extensions: { owner: 'platform' },
    *   astNode: schemaDocument.definitions[0],
-   *   extensionASTNodes: [ schemaDocument.definitions[1] ],
+   *   extensionASTNodes: [schemaDocument.definitions[1]],
    *   assumeValid: true,
    * });
    *

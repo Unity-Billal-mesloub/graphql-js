@@ -287,9 +287,13 @@ function reportInvalidValue(
  * });
  * const errors = [];
  *
- * validateInputLiteral(parseValue('{ stars: "bad" }'), ReviewInput, (error, path) => {
- *   errors.push({ message: error.message, path });
- * });
+ * validateInputLiteral(
+ *   parseValue('{ stars: "bad" }'),
+ *   ReviewInput,
+ *   (error, path) => {
+ *     errors.push({ message: error.message, path });
+ *   },
+ * );
  *
  * errors; // => [ { message: 'Expected value of type "Int", found: "bad".', path: ['stars'] } ]
  * ```
@@ -309,11 +313,9 @@ function reportInvalidValue(
  * `);
  * const document = parse('query ($stars: Int = 5) { review(stars: $stars) }');
  * const operation = document.definitions[0];
- * const result = getVariableValues(
- *   schema,
- *   operation.variableDefinitions,
- *   { stars: '4' },
- * );
+ * const result = getVariableValues(schema, operation.variableDefinitions, {
+ *   stars: '4',
+ * });
  *
  * assert('variableValues' in result);
  *

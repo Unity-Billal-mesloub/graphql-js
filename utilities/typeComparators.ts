@@ -15,11 +15,7 @@ import type { GraphQLSchema } from '../type/schema.ts';
  * @returns True when both types are equal.
  * @example
  * ```ts
- * import {
- *   GraphQLList,
- *   GraphQLNonNull,
- *   GraphQLString,
- * } from 'graphql/type';
+ * import { GraphQLList, GraphQLNonNull, GraphQLString } from 'graphql/type';
  * import { isEqualType } from 'graphql/utilities';
  *
  * isEqualType(GraphQLString, GraphQLString); // => true
