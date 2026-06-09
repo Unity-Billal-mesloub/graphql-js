@@ -1949,7 +1949,7 @@ export class GraphQLScalarType<
   coerceInputLiteral: GraphQLScalarInputLiteralCoercer<TInternal> | undefined;
   /** Converter used to produce GraphQL literals from runtime input values. */
   valueToLiteral: GraphQLScalarValueToLiteral | undefined;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLScalarTypeExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<ScalarTypeDefinitionNode>;
@@ -2229,7 +2229,7 @@ export interface GraphQLScalarTypeConfig<TInternal, TExternal> {
   coerceInputLiteral?: GraphQLScalarInputLiteralCoercer<TInternal> | undefined;
   /** Translates an externally provided value to a literal (AST). */
   valueToLiteral?: GraphQLScalarValueToLiteral | undefined;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLScalarTypeExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<ScalarTypeDefinitionNode>;
@@ -2320,7 +2320,7 @@ export class GraphQLObjectType<
   description: Maybe<string>;
   /** Predicate used to determine whether a runtime value belongs to this object type. */
   isTypeOf: Maybe<GraphQLIsTypeOfFn<TAbstract, TContext>>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLObjectTypeExtensions<TSource, TContext>>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<ObjectTypeDefinitionNode>;
@@ -2635,7 +2635,7 @@ export interface GraphQLObjectTypeConfig<
   fields: ThunkObjMap<GraphQLFieldConfig<TSource, TContext>>;
   /** Predicate used to determine whether a runtime value belongs to this object type. */
   isTypeOf?: Maybe<GraphQLIsTypeOfFn<TAbstract, TContext>>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLObjectTypeExtensions<TSource, TContext>>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<ObjectTypeDefinitionNode>;
@@ -2787,7 +2787,7 @@ export interface GraphQLFieldConfig<TSource, TContext, TArgs = any> {
   subscribe?: GraphQLFieldResolver<TSource, TContext, TArgs> | undefined;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason?: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<
     Readonly<GraphQLFieldExtensions<TSource, TContext, TArgs>>
   >;
@@ -2834,7 +2834,7 @@ export interface GraphQLArgumentConfig {
   default?: GraphQLDefaultInput | undefined;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason?: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLArgumentExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<InputValueDefinitionNode>;
@@ -2891,7 +2891,7 @@ export class GraphQLField<
   subscribe?: GraphQLFieldResolver<TSource, TContext, TArgs> | undefined;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLFieldExtensions<TSource, TContext, TArgs>>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<FieldDefinitionNode>;
@@ -3060,7 +3060,7 @@ export class GraphQLArgument implements GraphQLSchemaElement {
   _memoizedCoercedDefaultValue: unknown;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLArgumentExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<InputValueDefinitionNode>;
@@ -3302,7 +3302,7 @@ export class GraphQLInterfaceType<
   description: Maybe<string>;
   /** Function that resolves the concrete object type for this abstract type. */
   resolveType: Maybe<GraphQLTypeResolver<TSource, TContext>>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLInterfaceTypeExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<InterfaceTypeDefinitionNode>;
@@ -3561,7 +3561,7 @@ export interface GraphQLInterfaceTypeConfig<TSource, TContext> {
    * Object type.
    */
   resolveType?: Maybe<GraphQLTypeResolver<TSource, TContext>>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLInterfaceTypeExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<InterfaceTypeDefinitionNode>;
@@ -3628,7 +3628,7 @@ export class GraphQLUnionType<
   description: Maybe<string>;
   /** Function that resolves the concrete object type for this abstract type. */
   resolveType: Maybe<GraphQLTypeResolver<TSource, TContext>>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLUnionTypeExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<UnionTypeDefinitionNode>;
@@ -3841,7 +3841,7 @@ export interface GraphQLUnionTypeConfig<TSource, TContext> {
    * Object type.
    */
   resolveType?: Maybe<GraphQLTypeResolver<TSource, TContext>>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLUnionTypeExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<UnionTypeDefinitionNode>;
@@ -3905,7 +3905,7 @@ export class GraphQLEnumType /* <T> */ /* <T> */
   name: string;
   /** Human-readable description for this schema element, if provided. */
   description: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLEnumTypeExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<EnumTypeDefinitionNode>;
@@ -4400,7 +4400,7 @@ export interface GraphQLEnumTypeConfig {
   description?: Maybe<string>;
   /** Values contained in this enum, list, or input-object definition. */
   values: ThunkObjMap<GraphQLEnumValueConfig /* <T> */>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLEnumTypeExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<EnumTypeDefinitionNode>;
@@ -4438,7 +4438,7 @@ export interface GraphQLEnumValueConfig {
   value?: any /* T */;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason?: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLEnumValueExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<EnumValueDefinitionNode>;
@@ -4464,7 +4464,7 @@ export class GraphQLEnumValue implements GraphQLSchemaElement {
   value: any /* T */;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLEnumValueExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<EnumValueDefinitionNode>;
@@ -4619,7 +4619,7 @@ export class GraphQLInputObjectType implements GraphQLSchemaElement {
   name: string;
   /** Human-readable description for this schema element, if provided. */
   description: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLInputObjectTypeExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<InputObjectTypeDefinitionNode>;
@@ -4848,7 +4848,7 @@ export interface GraphQLInputObjectTypeConfig {
   description?: Maybe<string>;
   /** Fields declared by this object, interface, input object, or literal. */
   fields: ThunkObjMap<GraphQLInputFieldConfig>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLInputObjectTypeExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<InputObjectTypeDefinitionNode>;
@@ -4890,7 +4890,7 @@ export interface GraphQLInputFieldConfig {
   default?: GraphQLDefaultInput | undefined;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason?: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions?: Maybe<Readonly<GraphQLInputFieldExtensions>>;
   /** AST node from which this schema element was built, if available. */
   astNode?: Maybe<InputValueDefinitionNode>;
@@ -4935,7 +4935,7 @@ export class GraphQLInputField implements GraphQLSchemaElement {
   _memoizedCoercedDefaultValue: unknown;
   /** Reason this element is deprecated, if one was provided. */
   deprecationReason: Maybe<string>;
-  /** Extension fields to include in the formatted result. */
+  /** Custom extension fields reserved for users. */
   extensions: Readonly<GraphQLInputFieldExtensions>;
   /** AST node from which this schema element was built, if available. */
   astNode: Maybe<InputValueDefinitionNode>;
