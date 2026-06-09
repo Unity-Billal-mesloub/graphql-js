@@ -359,6 +359,34 @@ describe('extendSchema', () => {
     expectExtensionASTNodes(foo).to.equal(extensionSDL);
   });
 
+  it('builds scalars with specifiedBy directive from extensions', () => {
+    const schema = new GraphQLSchema({});
+    const extensionSDL = dedent`
+      schema {
+        query: Query
+      }
+
+      type Query {
+        foo: Foo
+      }
+
+      scalar Foo
+
+      extend scalar Foo @specifiedBy(url: "https://example.com/foo_spec")
+    `;
+
+    const extendedSchema = extendSchema(schema, parse(extensionSDL));
+    const foo = assertScalarType(extendedSchema.getType('Foo'));
+
+    expect(foo.specifiedByURL).to.equal('https://example.com/foo_spec');
+
+    expect(validateSchema(extendedSchema)).to.deep.equal([]);
+    expectASTNode(foo).to.equal('scalar Foo');
+    expectExtensionASTNodes(foo).to.equal(
+      'extend scalar Foo @specifiedBy(url: "https://example.com/foo_spec")',
+    );
+  });
+
   it('correctly assign AST nodes to new and extended types', () => {
     const schema = buildSchema(`
       type Query
@@ -1408,6 +1436,34 @@ describe('extendSchema', () => {
       );
       expectExtensionASTNodes(someDirective).to.equal(
         'extend directive @someDirective @onDirective',
+      );
+    });
+
+    it('builds directives with deprecation from extensions', () => {
+      const schema = new GraphQLSchema({});
+      const extensionSDL = dedent`
+        directive @isDeprecated on FIELD_DEFINITION
+
+        extend directive @isDeprecated @deprecated(reason: "use another directive")
+      `;
+      const extendedSchema = extendSchema(
+        schema,
+        parse(extensionSDL, {
+          experimentalDirectivesOnDirectiveDefinitions: true,
+        }),
+      );
+
+      const isDeprecatedDirective = assertDirective(
+        extendedSchema.getDirective('isDeprecated'),
+      );
+      expect(isDeprecatedDirective).to.include({
+        deprecationReason: 'use another directive',
+      });
+      expectASTNode(isDeprecatedDirective).to.equal(
+        'directive @isDeprecated on FIELD_DEFINITION',
+      );
+      expectExtensionASTNodes(isDeprecatedDirective).to.equal(
+        'extend directive @isDeprecated @deprecated(reason: "use another directive")',
       );
     });
 
