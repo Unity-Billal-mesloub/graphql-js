@@ -4,6 +4,7 @@ import { assert, expect } from 'chai';
 
 import { dedent } from '../../__testUtils__/dedent.ts';
 import { expectJSON } from '../../__testUtils__/expectJSON.ts';
+import { spyOnMethod } from '../../__testUtils__/spyOn.ts';
 
 import { inspect } from '../../jsutils/inspect.ts';
 
@@ -925,7 +926,7 @@ describe('Type System: Input Objects must have fields', () => {
     expectJSON(validateSchema(schema)).toDeepEqual([
       {
         message:
-          'Invalid circular reference. The Input Object SomeInputObject references itself in the non-null field SomeInputObject.nonNullSelf.',
+          'Input Object SomeInputObject cannot be provided a finite value because it references itself through fields: SomeInputObject.nonNullSelf.',
         locations: [{ line: 7, column: 9 }],
       },
     ]);
@@ -953,7 +954,7 @@ describe('Type System: Input Objects must have fields', () => {
     expectJSON(validateSchema(schema)).toDeepEqual([
       {
         message:
-          'Invalid circular reference. The Input Object SomeInputObject references itself via the non-null fields: SomeInputObject.startLoop, AnotherInputObject.nextInLoop, YetAnotherInputObject.closeLoop.',
+          'Input Object SomeInputObject cannot be provided a finite value because it references itself through fields: SomeInputObject.startLoop, AnotherInputObject.nextInLoop, YetAnotherInputObject.closeLoop.',
         locations: [
           { line: 7, column: 9 },
           { line: 11, column: 9 },
@@ -987,7 +988,7 @@ describe('Type System: Input Objects must have fields', () => {
     expectJSON(validateSchema(schema)).toDeepEqual([
       {
         message:
-          'Invalid circular reference. The Input Object SomeInputObject references itself via the non-null fields: SomeInputObject.startLoop, AnotherInputObject.closeLoop.',
+          'Input Object SomeInputObject cannot be provided a finite value because it references itself through fields: SomeInputObject.startLoop, AnotherInputObject.closeLoop.',
         locations: [
           { line: 7, column: 9 },
           { line: 11, column: 9 },
@@ -995,7 +996,7 @@ describe('Type System: Input Objects must have fields', () => {
       },
       {
         message:
-          'Invalid circular reference. The Input Object AnotherInputObject references itself via the non-null fields: AnotherInputObject.startSecondLoop, YetAnotherInputObject.closeSecondLoop.',
+          'Input Object AnotherInputObject cannot be provided a finite value because it references itself through fields: AnotherInputObject.startSecondLoop, YetAnotherInputObject.closeSecondLoop.',
         locations: [
           { line: 12, column: 9 },
           { line: 16, column: 9 },
@@ -1003,8 +1004,48 @@ describe('Type System: Input Objects must have fields', () => {
       },
       {
         message:
-          'Invalid circular reference. The Input Object YetAnotherInputObject references itself in the non-null field YetAnotherInputObject.nonNullSelf.',
+          'Input Object YetAnotherInputObject cannot be provided a finite value because it references itself through fields: YetAnotherInputObject.nonNullSelf.',
         locations: [{ line: 17, column: 9 }],
+      },
+    ]);
+  });
+
+  it('rejects an Input Object with multiple non-breakable circular references', () => {
+    const schema = buildSchema(`
+      type Query {
+        field(arg: A): String
+      }
+
+      input A {
+        b: B!
+        c: C!
+      }
+
+      input B {
+        a: A!
+      }
+
+      input C {
+        a: A!
+      }
+    `);
+
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.b, B.a.',
+        locations: [
+          { line: 7, column: 9 },
+          { line: 12, column: 9 },
+        ],
+      },
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.c, C.a.',
+        locations: [
+          { line: 8, column: 9 },
+          { line: 16, column: 9 },
+        ],
       },
     ]);
   });
@@ -2370,6 +2411,175 @@ describe('Type System: Input Object field default values must be valid', () => {
 });
 
 describe('Type System: OneOf Input Object fields must be nullable', () => {
+  it('accepts a OneOf Input Object with a scalar field', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        a: Int
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a OneOf Input Object with a recursive list field', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        a: [A!]
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a OneOf Input Object referencing a non-OneOf input object', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+      }
+
+      input B {
+        x: Int
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a OneOf Input Object referencing an already checked input object', () => {
+    const schema = buildSchema(`
+      type Query {
+        a(arg: A): Int
+      }
+
+      input B {
+        value: Int
+      }
+
+      input A @oneOf {
+        b: B
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a OneOf Input Object with multiple acyclic input object fields', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+        c: C
+      }
+
+      input B {
+        value: Int
+      }
+
+      input C {
+        value: Int
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a OneOf/OneOf cycle with a scalar escape', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+        escape: Int
+      }
+
+      input B @oneOf {
+        a: A
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a OneOf/non-OneOf cycle with a nullable escape', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+      }
+
+      input B {
+        a: A
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a OneOf/non-OneOf with scalar escape', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+        escape: Int
+      }
+
+      input B {
+        a: A!
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a non-OneOf/non-OneOf cycle with a nullable escape', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A {
+        b: B!
+      }
+
+      input B {
+        a: A
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
+  it('accepts a non-OneOf/non-OneOf cycle with a non-null list of non-null items escape', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A {
+        b: [B!]!
+      }
+
+      input B {
+        a: A!
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([]);
+  });
+
   it('rejects non-nullable fields', () => {
     const schema = buildSchema(`
       type Query {
@@ -2405,6 +2615,224 @@ describe('Type System: OneOf Input Object fields must be nullable', () => {
         message:
           'OneOf input field SomeInputObject.b cannot have a default value.',
         locations: [{ line: 8, column: 9 }],
+      },
+    ]);
+  });
+
+  it('rejects a self-referencing OneOf type with no escapes', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        self: A
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.self.',
+        locations: [{ line: 7, column: 9 }],
+      },
+    ]);
+  });
+
+  it('rejects a non-OneOf Input Object requiring an unbreakable OneOf cycle', () => {
+    const schema = buildSchema(`
+      type Query {
+        a(arg: A): Int
+      }
+
+      input T @oneOf {
+        self: T
+      }
+
+      input A {
+        t: T!
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message:
+          'Input Object T cannot be provided a finite value because it references itself through fields: T.self.',
+        locations: [{ line: 7, column: 9 }],
+      },
+    ]);
+  });
+
+  it('checks each shared unbreakable OneOf subgraph once', () => {
+    const chainLength = 16;
+    const types: Array<GraphQLInputObjectType> = [];
+    types[0] = new GraphQLInputObjectType({
+      name: 'T0',
+      isOneOf: true,
+      fields: () => ({ self: { type: types[0] } }),
+    });
+
+    for (let i = 1; i <= chainLength; ++i) {
+      const previousType = types[i - 1];
+      types[i] = new GraphQLInputObjectType({
+        name: `T${i}`,
+        isOneOf: true,
+        fields: {
+          a: { type: previousType },
+          b: { type: previousType },
+        },
+      });
+    }
+
+    const getFieldsSpies = types.map((type) =>
+      spyOnMethod(type, 'getFields', {
+        stackMatcher: (stack) =>
+          stack.includes('detectInputObjectNonFiniteValues'),
+      }),
+    );
+
+    const schema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: 'Query',
+        fields: {
+          test: {
+            type: GraphQLInt,
+            args: { input: { type: types[chainLength] } },
+          },
+        },
+      }),
+      types,
+    });
+
+    expect(validateSchema(schema)).to.have.lengthOf(1);
+    expect(
+      getFieldsSpies.reduce((sum, spy) => sum + spy.callCount, 0),
+    ).to.equal(17);
+  });
+
+  it('rejects a mixed OneOf/non-OneOf cycle with no escapes', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+      }
+
+      input B {
+        a: A!
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.b, B.a.',
+        locations: [
+          { line: 7, column: 9 },
+          { line: 11, column: 9 },
+        ],
+      },
+    ]);
+  });
+
+  it('rejects multiple OneOf branches without duplicate cycle reports', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+        c: C
+      }
+
+      input B {
+        a: A!
+      }
+
+      input C {
+        a: A!
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.b, B.a.',
+        locations: [
+          { line: 7, column: 9 },
+          { line: 12, column: 9 },
+        ],
+      },
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.c, C.a.',
+        locations: [
+          { line: 8, column: 9 },
+          { line: 16, column: 9 },
+        ],
+      },
+    ]);
+  });
+
+  it('rejects a non-OneOf/non-OneOf cycle with required scalar, list, and finite input fields', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A {
+        list: [B]!
+        finite: Finite!
+        b: B!
+      }
+
+      input B {
+        value: Int!
+        a: A!
+      }
+
+      input Finite {
+        value: Int!
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.b, B.a.',
+        locations: [
+          { line: 9, column: 9 },
+          { line: 14, column: 9 },
+        ],
+      },
+    ]);
+  });
+
+  it('rejects a larger mixed OneOf/non-OneOf cycle with no escapes', () => {
+    const schema = buildSchema(`
+      type Query {
+        test(arg: A): Int
+      }
+
+      input A @oneOf {
+        b: B
+      }
+
+      input B {
+        c: C!
+      }
+
+      input C @oneOf {
+        a: A
+      }
+    `);
+    expectJSON(validateSchema(schema)).toDeepEqual([
+      {
+        message:
+          'Input Object A cannot be provided a finite value because it references itself through fields: A.b, B.c, C.a.',
+        locations: [
+          { line: 7, column: 9 },
+          { line: 11, column: 9 },
+          { line: 15, column: 9 },
+        ],
       },
     ]);
   });

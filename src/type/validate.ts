@@ -405,12 +405,14 @@ function validateName(
 }
 
 function validateTypes(context: SchemaValidationContext): void {
-  // Ensure Input Objects do not contain non-nullable circular references.
-  const validateInputObjectNonNullCircularRefs =
-    createInputObjectNonNullCircularRefsValidator(context);
   const validateInputObjectDefaultValueCircularRefs =
     createInputObjectDefaultValueCircularRefsValidator(context);
   const typeMap = context.schema.getTypeMap();
+  const finiteValueStates = new Map<
+    GraphQLInputObjectType,
+    InputObjectFiniteValueState
+  >();
+
   for (const type of Object.values(typeMap)) {
     // Ensure all provided types are in fact GraphQL type.
     if (!isNamedType(type)) {
@@ -448,13 +450,25 @@ function validateTypes(context: SchemaValidationContext): void {
       // Ensure Input Object fields are valid.
       validateInputFields(context, type);
 
-      // Ensure Input Objects do not contain invalid field circular references.
-      // Ensure Input Objects do not contain non-nullable circular references.
-      validateInputObjectNonNullCircularRefs(type);
+      initializeInputObjectFiniteValueState(type);
 
       // Ensure Input Objects do not contain invalid default value circular references.
       validateInputObjectDefaultValueCircularRefs(type);
     }
+  }
+
+  detectInputObjectNonFiniteValues(context, finiteValueStates);
+
+  function initializeInputObjectFiniteValueState(
+    inputObj: GraphQLInputObjectType,
+  ): void {
+    finiteValueStates.set(inputObj, {
+      inputObj,
+      targets: [],
+      dependents: [],
+      unresolvedTargetCount: 0,
+      hasFiniteValue: false,
+    });
   }
 }
 
@@ -771,65 +785,159 @@ function validateOneOfInputObjectField(
   }
 }
 
-function createInputObjectNonNullCircularRefsValidator(
+interface InputObjectFiniteValueTarget {
+  field: GraphQLInputField;
+  target: GraphQLInputObjectType;
+}
+
+interface InputObjectFiniteValueState {
+  inputObj: GraphQLInputObjectType;
+  targets: Array<InputObjectFiniteValueTarget>;
+  dependents: Array<InputObjectFiniteValueState>;
+  unresolvedTargetCount: number;
+  hasFiniteValue: boolean;
+}
+
+// Implements the spec's InputObjectHasUnbreakableCycle algorithm for all Input
+// Objects in one pass by propagating known breakable types through reverse edges.
+function detectInputObjectNonFiniteValues(
   context: SchemaValidationContext,
-): (inputObj: GraphQLInputObjectType) => void {
-  // Modified copy of algorithm from 'src/validation/rules/NoFragmentCycles.js'.
-  // Tracks already visited types to maintain O(N) and to ensure that cycles
-  // are not redundantly reported.
+  finiteValueStates: ReadonlyMap<
+    GraphQLInputObjectType,
+    InputObjectFiniteValueState
+  >,
+): void {
+  const inputObjectsWithFiniteValues: Array<InputObjectFiniteValueState> = [];
+
+  for (const state of finiteValueStates.values()) {
+    const inputObj = state.inputObj;
+    const fields = Object.values(inputObj.getFields());
+
+    for (const field of fields) {
+      const target = getFiniteValueTarget(inputObj, field.type);
+      if (target === undefined) {
+        continue;
+      }
+
+      state.targets.push({ field, target });
+      const targetState = finiteValueStates.get(target);
+      if (targetState !== undefined) {
+        targetState.dependents.push(state);
+      }
+    }
+
+    if (inputObj.isOneOf) {
+      // OneOf Input Objects have an unbreakable cycle if every field leads to an unbreakable cycle.
+      if (fields.length === 0 || state.targets.length < fields.length) {
+        markInputObjectHasFiniteValue(state);
+      }
+    } else {
+      // Non-OneOf Input Objects have an unbreakable cycle if any non-null field has one.
+      state.unresolvedTargetCount = state.targets.length;
+      if (state.targets.length === 0) {
+        markInputObjectHasFiniteValue(state);
+      }
+    }
+  }
+
+  let nextFiniteValueState: InputObjectFiniteValueState | undefined;
+  while (
+    (nextFiniteValueState = inputObjectsWithFiniteValues.pop()) !== undefined
+  ) {
+    for (const dependentState of nextFiniteValueState.dependents) {
+      if (dependentState.hasFiniteValue) {
+        continue;
+      }
+
+      if (dependentState.inputObj.isOneOf) {
+        markInputObjectHasFiniteValue(dependentState);
+        continue;
+      }
+
+      --dependentState.unresolvedTargetCount;
+      if (dependentState.unresolvedTargetCount === 0) {
+        markInputObjectHasFiniteValue(dependentState);
+      }
+    }
+  }
+
+  // Tracks already visited types to ensure that cycles are not redundantly
+  // reported.
   const visitedTypes = new Set<GraphQLInputObjectType>();
 
-  // Array of types nodes used to produce meaningful errors
+  // Array of fields used to produce meaningful errors.
   const fieldPath: Array<{ fieldStr: string; astNode: Maybe<ASTNode> }> = [];
 
-  // Position in the type path
-  const fieldPathIndexByTypeName: ObjMap<number | undefined> =
-    Object.create(null);
+  // Position in the field path.
+  const fieldPathIndexByType = new Map<GraphQLInputObjectType, number>();
 
-  return detectCycleRecursive;
+  for (const state of finiteValueStates.values()) {
+    if (!state.hasFiniteValue) {
+      reportCycleRecursive(state);
+    }
+  }
 
-  // This does a straight-forward DFS to find cycles.
-  // It does not terminate when a cycle was found but continues to explore
-  // the graph to find all possible cycles.
-  function detectCycleRecursive(inputObj: GraphQLInputObjectType): void {
+  function markInputObjectHasFiniteValue(
+    finiteValueState: InputObjectFiniteValueState,
+  ): void {
+    if (!finiteValueState.hasFiniteValue) {
+      finiteValueState.hasFiniteValue = true;
+      inputObjectsWithFiniteValues.push(finiteValueState);
+    }
+  }
+
+  function reportCycleRecursive(state: InputObjectFiniteValueState): void {
+    const inputObj = state.inputObj;
     if (visitedTypes.has(inputObj)) {
       return;
     }
 
     visitedTypes.add(inputObj);
-    fieldPathIndexByTypeName[inputObj.name] = fieldPath.length;
+    fieldPathIndexByType.set(inputObj, fieldPath.length);
 
-    const fields = Object.values(inputObj.getFields());
-    for (const field of fields) {
-      if (isNonNullType(field.type) && isInputObjectType(field.type.ofType)) {
-        const fieldType = field.type.ofType;
-        const cycleIndex = fieldPathIndexByTypeName[fieldType.name];
-
-        fieldPath.push({
-          fieldStr: `${inputObj}.${field.name}`,
-          astNode: field.astNode,
-        });
-        if (cycleIndex === undefined) {
-          detectCycleRecursive(fieldType);
-        } else {
-          const cyclePath = fieldPath.slice(cycleIndex);
-          const pathStr = cyclePath
-            .map((fieldObj) => fieldObj.fieldStr)
-            .join(', ');
-          context.reportError(
-            `Invalid circular reference. The Input Object ${fieldType} references itself ${
-              cyclePath.length > 1
-                ? 'via the non-null fields:'
-                : 'in the non-null field'
-            } ${pathStr}.`,
-            cyclePath.map((fieldObj) => fieldObj.astNode),
-          );
-        }
-        fieldPath.pop();
+    for (const { field, target } of state.targets) {
+      const targetState = finiteValueStates.get(target);
+      if (targetState?.hasFiniteValue !== false) {
+        continue;
       }
+
+      const cycleIndex = fieldPathIndexByType.get(target);
+      fieldPath.push({
+        fieldStr: `${inputObj}.${field.name}`,
+        astNode: field.astNode,
+      });
+
+      if (cycleIndex === undefined) {
+        reportCycleRecursive(targetState);
+      } else {
+        const cyclePath = fieldPath.slice(cycleIndex);
+        const pathStr = cyclePath.map((p) => p.fieldStr).join(', ');
+        context.reportError(
+          `Input Object ${target} cannot be provided a finite value because it references itself through fields: ${pathStr}.`,
+          cyclePath.map((p) => p.astNode),
+        );
+      }
+
+      fieldPath.pop();
     }
 
-    fieldPathIndexByTypeName[inputObj.name] = undefined;
+    fieldPathIndexByType.delete(inputObj);
+  }
+}
+
+function getFiniteValueTarget(
+  inputObj: GraphQLInputObjectType,
+  fieldType: GraphQLInputType,
+): GraphQLInputObjectType | undefined {
+  if (inputObj.isOneOf) {
+    if (isInputObjectType(fieldType)) {
+      return fieldType;
+    }
+    return;
+  }
+
+  if (isNonNullType(fieldType) && isInputObjectType(fieldType.ofType)) {
+    return fieldType.ofType;
   }
 }
 
