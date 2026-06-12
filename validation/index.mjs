@@ -41,6 +41,7 @@ export { UniqueFieldDefinitionNamesRule } from "./rules/UniqueFieldDefinitionNam
 export { UniqueArgumentDefinitionNamesRule } from "./rules/UniqueArgumentDefinitionNamesRule.mjs";
 export { UniqueDirectiveNamesRule } from "./rules/UniqueDirectiveNamesRule.mjs";
 export { PossibleTypeExtensionsRule } from "./rules/PossibleTypeExtensionsRule.mjs";
+export { NoDirectiveDefinitionCyclesRule } from "./rules/NoDirectiveDefinitionCyclesRule.mjs";
 export { NoDeprecatedCustomRule } from "./rules/custom/NoDeprecatedCustomRule.mjs";
 export { NoSchemaIntrospectionCustomRule } from "./rules/custom/NoSchemaIntrospectionCustomRule.mjs";
 //# sourceMappingURL=index.js.map

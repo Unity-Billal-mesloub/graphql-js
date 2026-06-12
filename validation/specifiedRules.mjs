@@ -12,6 +12,7 @@ import { KnownTypeNamesRule } from "./rules/KnownTypeNamesRule.mjs";
 import { LoneAnonymousOperationRule } from "./rules/LoneAnonymousOperationRule.mjs";
 import { LoneSchemaDefinitionRule } from "./rules/LoneSchemaDefinitionRule.mjs";
 import { MaxIntrospectionDepthRule } from "./rules/MaxIntrospectionDepthRule.mjs";
+import { NoDirectiveDefinitionCyclesRule } from "./rules/NoDirectiveDefinitionCyclesRule.mjs";
 import { NoFragmentCyclesRule } from "./rules/NoFragmentCyclesRule.mjs";
 import { NoUndefinedVariablesRule } from "./rules/NoUndefinedVariablesRule.mjs";
 import { NoUnusedFragmentsRule } from "./rules/NoUnusedFragmentsRule.mjs";
@@ -91,5 +92,6 @@ export const specifiedSDLRules = Object.freeze([
     UniqueArgumentNamesRule,
     UniqueInputFieldNamesRule,
     ProvidedRequiredArgumentsOnDirectivesRule,
+    NoDirectiveDefinitionCyclesRule,
 ]);
 //# sourceMappingURL=specifiedRules.js.map
