@@ -49,6 +49,5 @@ export { UniqueFieldDefinitionNamesRule } from "./rules/UniqueFieldDefinitionNam
 export { UniqueArgumentDefinitionNamesRule } from "./rules/UniqueArgumentDefinitionNamesRule.js";
 export { UniqueDirectiveNamesRule } from "./rules/UniqueDirectiveNamesRule.js";
 export { PossibleTypeExtensionsRule } from "./rules/PossibleTypeExtensionsRule.js";
-export { NoDirectiveDefinitionCyclesRule } from "./rules/NoDirectiveDefinitionCyclesRule.js";
 export { NoDeprecatedCustomRule } from "./rules/custom/NoDeprecatedCustomRule.js";
 export { NoSchemaIntrospectionCustomRule } from "./rules/custom/NoSchemaIntrospectionCustomRule.js";

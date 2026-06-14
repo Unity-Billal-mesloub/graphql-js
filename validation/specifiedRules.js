@@ -15,7 +15,6 @@ const KnownTypeNamesRule_ts_1 = require("./rules/KnownTypeNamesRule.js");
 const LoneAnonymousOperationRule_ts_1 = require("./rules/LoneAnonymousOperationRule.js");
 const LoneSchemaDefinitionRule_ts_1 = require("./rules/LoneSchemaDefinitionRule.js");
 const MaxIntrospectionDepthRule_ts_1 = require("./rules/MaxIntrospectionDepthRule.js");
-const NoDirectiveDefinitionCyclesRule_ts_1 = require("./rules/NoDirectiveDefinitionCyclesRule.js");
 const NoFragmentCyclesRule_ts_1 = require("./rules/NoFragmentCyclesRule.js");
 const NoUndefinedVariablesRule_ts_1 = require("./rules/NoUndefinedVariablesRule.js");
 const NoUnusedFragmentsRule_ts_1 = require("./rules/NoUnusedFragmentsRule.js");
@@ -95,6 +94,5 @@ exports.specifiedSDLRules = Object.freeze([
     UniqueArgumentNamesRule_ts_1.UniqueArgumentNamesRule,
     UniqueInputFieldNamesRule_ts_1.UniqueInputFieldNamesRule,
     ProvidedRequiredArgumentsRule_ts_1.ProvidedRequiredArgumentsOnDirectivesRule,
-    NoDirectiveDefinitionCyclesRule_ts_1.NoDirectiveDefinitionCyclesRule,
 ]);
 //# sourceMappingURL=specifiedRules.js.map
