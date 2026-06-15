@@ -41,17 +41,6 @@ export interface ParseOptions {
      */
     experimentalFragmentArguments?: boolean | undefined;
     /**
-     * EXPERIMENTAL:
-     *
-     * If enabled, the parser will parse directives on directive definitions.
-     * This syntax is not part of the GraphQL specification and may change.
-     * @example
-     * ```graphql prettier-ignore
-     * directive @foo @bar on FIELD
-     * ```
-     */
-    experimentalDirectivesOnDirectiveDefinitions?: boolean | undefined;
-    /**
      * Internal parser hook for GraphQL.js entry points that need to parse a
      * restricted grammar with an alternate lexer.
      * @internal
@@ -93,9 +82,7 @@ export interface ParseOptions {
  *     noLocation: true,
  *   },
  * );
- * const directiveDocument = parse('directive @foo @bar on FIELD', {
- *   experimentalDirectivesOnDirectiveDefinitions: true,
- * });
+ * const directiveDocument = parse('directive @foo @bar on FIELD');
  * const source = new Source('{ hero }');
  * const lexerDocument = parse(source, { lexer: new Lexer(source) });
  *
@@ -564,6 +551,7 @@ export declare class Parser {
      * TypeSystemExtension :
      *   - SchemaExtension
      *   - TypeExtension
+     *   - DirectiveExtension
      *
      * TypeExtension :
      *   - ScalarTypeExtension
@@ -571,8 +559,7 @@ export declare class Parser {
      *   - InterfaceTypeExtension
      *   - UnionTypeExtension
      *   - EnumTypeExtension
-     *   - InputObjectTypeDefinition
-     *   - DirectiveDefinitionExtension
+     *   - InputObjectTypeExtension
      *
      * @internal
      */
@@ -636,11 +623,11 @@ export declare class Parser {
      * @internal
      */
     parseInputObjectTypeExtension(): InputObjectTypeExtensionNode;
-    parseDirectiveDefinitionExtension(): DirectiveExtensionNode;
+    parseDirectiveExtension(): DirectiveExtensionNode;
     /**
      * ```
      * DirectiveDefinition :
-     *   - Description? directive @ Name ArgumentsDefinition? `repeatable`? on DirectiveLocations
+     *   - Description? directive @ Name ArgumentsDefinition? Directives[Const]? `repeatable`? on DirectiveLocations
      * ```
      *
      * @internal
