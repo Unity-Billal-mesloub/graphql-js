@@ -125,7 +125,6 @@ export function buildASTSchema(
  *   'directive @tag on FIELD_DEFINITION\n' +
  *     'directive @compose @tag on FIELD_DEFINITION',
  *   {
- *     experimentalDirectivesOnDirectiveDefinitions: true,
  *     experimentalFragmentArguments: true,
  *     noLocation: true,
  *   },
@@ -144,8 +143,6 @@ export function buildSchema(
   const document = parse(source, {
     noLocation: options?.noLocation,
     experimentalFragmentArguments: options?.experimentalFragmentArguments,
-    experimentalDirectivesOnDirectiveDefinitions:
-      options?.experimentalDirectivesOnDirectiveDefinitions,
   });
   return buildASTSchema(document, {
     assumeValidSDL: options?.assumeValidSDL,

@@ -111,17 +111,6 @@ export interface ParseOptions {
    */
   experimentalFragmentArguments?: boolean | undefined;
   /**
-   * EXPERIMENTAL:
-   *
-   * If enabled, the parser will parse directives on directive definitions.
-   * This syntax is not part of the GraphQL specification and may change.
-   * @example
-   * ```graphql prettier-ignore
-   * directive @foo @bar on FIELD
-   * ```
-   */
-  experimentalDirectivesOnDirectiveDefinitions?: boolean | undefined;
-  /**
    * Internal parser hook for GraphQL.js entry points that need to parse a
    * restricted grammar with an alternate lexer.
    * @internal
@@ -163,9 +152,7 @@ export interface ParseOptions {
  *     noLocation: true,
  *   },
  * );
- * const directiveDocument = parse('directive @foo @bar on FIELD', {
- *   experimentalDirectivesOnDirectiveDefinitions: true,
- * });
+ * const directiveDocument = parse('directive @foo @bar on FIELD');
  * const source = new Source('{ hero }');
  * const lexerDocument = parse(source, { lexer: new Lexer(source) });
  *
@@ -1315,6 +1302,7 @@ export class Parser {
    * TypeSystemExtension :
    *   - SchemaExtension
    *   - TypeExtension
+   *   - DirectiveExtension
    *
    * TypeExtension :
    *   - ScalarTypeExtension
@@ -1322,8 +1310,7 @@ export class Parser {
    *   - InterfaceTypeExtension
    *   - UnionTypeExtension
    *   - EnumTypeExtension
-   *   - InputObjectTypeDefinition
-   *   - DirectiveDefinitionExtension
+   *   - InputObjectTypeExtension
    *
    * @internal
    */
@@ -1346,10 +1333,7 @@ export class Parser {
         case 'input':
           return this.parseInputObjectTypeExtension();
         case 'directive':
-          if (this._options.experimentalDirectivesOnDirectiveDefinitions) {
-            return this.parseDirectiveDefinitionExtension();
-          }
-          break;
+          return this.parseDirectiveExtension();
       }
     }
     throw this.unexpected(keywordToken);
@@ -1537,7 +1521,7 @@ export class Parser {
       fields,
     });
   }
-  parseDirectiveDefinitionExtension(): DirectiveExtensionNode {
+  parseDirectiveExtension(): DirectiveExtensionNode {
     const start = this._lexer.token;
     this.expectKeyword('extend');
     this.expectKeyword('directive');
@@ -1556,7 +1540,7 @@ export class Parser {
   /**
    * ```
    * DirectiveDefinition :
-   *   - Description? directive @ Name ArgumentsDefinition? `repeatable`? on DirectiveLocations
+   *   - Description? directive @ Name ArgumentsDefinition? Directives[Const]? `repeatable`? on DirectiveLocations
    * ```
    *
    * @internal
@@ -1568,10 +1552,7 @@ export class Parser {
     this.expectToken(TokenKind.AT);
     const name = this.parseName();
     const args = this.parseArgumentDefs();
-    const directives = this._options
-      .experimentalDirectivesOnDirectiveDefinitions
-      ? this.parseConstDirectives()
-      : undefined;
+    const directives = this.parseConstDirectives();
     const repeatable = this.expectOptionalKeyword('repeatable');
     this.expectKeyword('on');
     const locations = this.parseDirectiveLocations();
