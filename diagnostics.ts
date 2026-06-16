@@ -412,16 +412,17 @@ export function traceMixed<TResult, TContext extends TraceLifecycleContext>(
       return result;
     }
     channel.end.publish(context);
-    channel.asyncStart.publish(context);
     return result.then(
       (value) => {
         context.result = value;
+        channel.asyncStart.publish(context);
         channel.asyncEnd.publish(context);
         return value;
       },
       (err: unknown) => {
         context.error = err;
         channel.error.publish(context);
+        channel.asyncStart.publish(context);
         channel.asyncEnd.publish(context);
         throw err;
       },
