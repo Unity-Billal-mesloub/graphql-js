@@ -33,9 +33,6 @@
   "engines": {
     "node": "^22.0.0 || ^24.0.0 || ^25.0.0 || >=26.0.0"
   },
-  "publishConfig": {
-    "tag": "latest"
-  },
   "main": "index.js",
   "module": "index.mjs",
   "types": "index.d.ts",
