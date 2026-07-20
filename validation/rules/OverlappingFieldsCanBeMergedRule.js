@@ -33,11 +33,12 @@ function OverlappingFieldsCanBeMergedRule(context) {
 }
 function findConflictsWithinSelectionSet(context, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, parentType, selectionSet) {
     const conflicts = [];
-    const [fieldMap, fragmentSpreads] = getFieldsAndFragmentSpreads(context, cachedFieldsAndFragmentSpreads, parentType, selectionSet, undefined);
-    collectConflictsWithin(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, fieldMap);
+    const varMap = getVarMap(context.getFragmentSignature());
+    const [fieldMap, fragmentSpreads] = getFieldsAndFragmentSpreads(context, cachedFieldsAndFragmentSpreads, parentType, selectionSet, varMap);
+    collectConflictsWithin(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, fieldMap, varMap);
     if (fragmentSpreads.length !== 0) {
         for (let i = 0; i < fragmentSpreads.length; i++) {
-            collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, false, fieldMap, fragmentSpreads[i]);
+            collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, false, fieldMap, varMap, fragmentSpreads[i]);
             for (let j = i + 1; j < fragmentSpreads.length; j++) {
                 collectConflictsBetweenFragments(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, false, fragmentSpreads[i], fragmentSpreads[j]);
             }
@@ -45,7 +46,7 @@ function findConflictsWithinSelectionSet(context, cachedFieldsAndFragmentSpreads
     }
     return conflicts;
 }
-function collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap, fragmentSpread) {
+function collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap, varMap, fragmentSpread) {
     if (comparedFieldsAndFragmentPairs.has(fieldMap, fragmentSpread.key, areMutuallyExclusive)) {
         return;
     }
@@ -58,9 +59,9 @@ function collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFiel
     if (fieldMap === fieldMap2) {
         return;
     }
-    collectConflictsBetween(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap, undefined, fieldMap2, fragmentSpread.varMap);
+    collectConflictsBetween(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap, varMap, fieldMap2, fragmentSpread.varMap);
     for (const referencedFragmentSpread of referencedFragmentSpreads) {
-        collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap, referencedFragmentSpread);
+        collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap, varMap, referencedFragmentSpread);
     }
 }
 function collectConflictsBetweenFragments(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fragmentSpread1, fragmentSpread2) {
@@ -68,10 +69,12 @@ function collectConflictsBetweenFragments(context, conflicts, cachedFieldsAndFra
         return;
     }
     if (fragmentSpread1.node.name.value === fragmentSpread2.node.name.value) {
-        if (!sameArguments(fragmentSpread1.node.arguments, fragmentSpread1.varMap, fragmentSpread2.node.arguments, fragmentSpread2.varMap)) {
-            context.reportError(new GraphQLError_ts_1.GraphQLError(`Spreads "${fragmentSpread1.node.name.value}" conflict because ${fragmentSpread1.key} and ${fragmentSpread2.key} have different fragment arguments.`, { nodes: [fragmentSpread1.node, fragmentSpread2.node] }));
+        if (comparedFragmentPairs.has(fragmentSpread1.key, fragmentSpread2.key, false)) {
             return;
         }
+        comparedFragmentPairs.add(fragmentSpread1.key, fragmentSpread2.key, false);
+        context.reportError(new GraphQLError_ts_1.GraphQLError(`Spreads "${fragmentSpread1.node.name.value}" conflict because ${getFragmentSpreadDescription(fragmentSpread1.node)} and ${getFragmentSpreadDescription(fragmentSpread2.node)} have different fragment arguments.`, { nodes: [fragmentSpread1.node, fragmentSpread2.node] }));
+        return;
     }
     if (comparedFragmentPairs.has(fragmentSpread1.key, fragmentSpread2.key, areMutuallyExclusive)) {
         return;
@@ -98,10 +101,10 @@ function findConflictsBetweenSubSelectionSets(context, cachedFieldsAndFragmentSp
     const [fieldMap2, fragmentSpreads2] = getFieldsAndFragmentSpreads(context, cachedFieldsAndFragmentSpreads, parentType2, selectionSet2, varMap2);
     collectConflictsBetween(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap1, varMap1, fieldMap2, varMap2);
     for (const fragmentSpread2 of fragmentSpreads2) {
-        collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap1, fragmentSpread2);
+        collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap1, varMap1, fragmentSpread2);
     }
     for (const fragmentSpread1 of fragmentSpreads1) {
-        collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap2, fragmentSpread1);
+        collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, areMutuallyExclusive, fieldMap2, varMap2, fragmentSpread1);
     }
     for (const fragmentSpread1 of fragmentSpreads1) {
         for (const fragmentSpread2 of fragmentSpreads2) {
@@ -110,12 +113,12 @@ function findConflictsBetweenSubSelectionSets(context, cachedFieldsAndFragmentSp
     }
     return conflicts;
 }
-function collectConflictsWithin(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, fieldMap) {
+function collectConflictsWithin(context, conflicts, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, fieldMap, varMap) {
     for (const [responseName, fields] of fieldMap.entries()) {
         if (fields.length > 1) {
             for (let i = 0; i < fields.length; i++) {
                 for (let j = i + 1; j < fields.length; j++) {
-                    const conflict = findConflict(context, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, false, responseName, fields[i], undefined, fields[j], undefined);
+                    const conflict = findConflict(context, cachedFieldsAndFragmentSpreads, comparedFieldsAndFragmentPairs, comparedFragmentPairs, false, responseName, fields[i], varMap, fields[j], varMap);
                     if (conflict) {
                         conflicts.push(conflict);
                     }
@@ -280,7 +283,12 @@ function doTypesConflict(type1, type2) {
     return false;
 }
 function getFieldsAndFragmentSpreads(context, cachedFieldsAndFragmentSpreads, parentType, selectionSet, varMap) {
-    const cached = cachedFieldsAndFragmentSpreads.get(selectionSet);
+    let cache = cachedFieldsAndFragmentSpreads.get(selectionSet);
+    if (!cache) {
+        cache = new Map();
+        cachedFieldsAndFragmentSpreads.set(selectionSet, cache);
+    }
+    const cached = cache.get(varMap);
     if (cached) {
         return cached;
     }
@@ -291,11 +299,13 @@ function getFieldsAndFragmentSpreads(context, cachedFieldsAndFragmentSpreads, pa
         nodeAndDefs,
         Array.from(fragmentSpreads.values()),
     ];
-    cachedFieldsAndFragmentSpreads.set(selectionSet, result);
+    cache.set(varMap, result);
     return result;
 }
 function getReferencedFieldsAndFragmentSpreads(context, cachedFieldsAndFragmentSpreads, fragment, varMap) {
-    const cached = cachedFieldsAndFragmentSpreads.get(fragment.selectionSet);
+    const cached = cachedFieldsAndFragmentSpreads
+        .get(fragment.selectionSet)
+        ?.get(varMap);
     if (cached) {
         return cached;
     }
@@ -340,7 +350,6 @@ function _collectFieldsAndFragmentSpreads(context, parentType, selectionSet, nod
 }
 function getFragmentSpread(context, fragmentSpreadNode, varMap) {
     let key = '';
-    const newVarMap = new Map();
     const fragmentSignature = context.getFragmentSignatureByName()(fragmentSpreadNode.name.value);
     const argMap = new Map();
     if (fragmentSpreadNode.arguments) {
@@ -350,17 +359,13 @@ function getFragmentSpread(context, fragmentSpreadNode, varMap) {
     }
     if (fragmentSignature?.variableDefinitions) {
         key += fragmentSpreadNode.name.value + '(';
-        for (const [varName, variable] of fragmentSignature.variableDefinitions) {
+        for (const varName of fragmentSignature.variableDefinitions.keys()) {
             const value = argMap.get(varName);
             if (value) {
-                key += varName + ': ' + (0, printer_ts_1.print)((0, sortValueNode_ts_1.sortValueNode)(value));
-            }
-            const arg = argMap.get(varName);
-            if (arg !== undefined) {
-                newVarMap.set(varName, varMap !== undefined ? replaceFragmentVariables(arg, varMap) : arg);
-            }
-            else if (variable.defaultValue) {
-                newVarMap.set(varName, variable.defaultValue);
+                const scopedValue = varMap
+                    ? replaceFragmentVariables(value, varMap)
+                    : value;
+                key += varName + ': ' + stringifyValue(scopedValue);
             }
         }
         key += ')';
@@ -368,8 +373,24 @@ function getFragmentSpread(context, fragmentSpreadNode, varMap) {
     return {
         key,
         node: fragmentSpreadNode,
-        varMap: newVarMap.size > 0 ? newVarMap : undefined,
+        varMap: getVarMap(fragmentSignature, key),
     };
+}
+function getVarMap(fragmentSignature, key = '') {
+    if (!fragmentSignature || fragmentSignature.variableDefinitions.size === 0) {
+        return;
+    }
+    const varMap = new Map();
+    for (const variableName of fragmentSignature.variableDefinitions.keys()) {
+        varMap.set(variableName, {
+            kind: kinds_ts_1.Kind.VARIABLE,
+            name: { kind: kinds_ts_1.Kind.NAME, value: JSON.stringify([key, variableName]) },
+        });
+    }
+    return varMap;
+}
+function getFragmentSpreadDescription(node) {
+    return (0, printer_ts_1.print)({ ...node, directives: [] }).slice(3);
 }
 function subfieldConflicts(conflicts, responseName, node1, node2) {
     if (conflicts.length > 0) {
