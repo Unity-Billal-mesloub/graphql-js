@@ -105,7 +105,8 @@ export function OverlappingFieldsCanBeMergedRule(
   // A cache for the "field map" and list of fragment spreads found in any given
   // selection set. Selection sets may be asked for this information multiple
   // times, so this improves the performance of this validator.
-  const cachedFieldsAndFragmentSpreads = new Map();
+  const cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache =
+    new Map();
   return {
     SelectionSet(selectionSet) {
       const conflicts = findConflictsWithinSelectionSet(
@@ -151,6 +152,10 @@ type FieldsAndFragmentSpreads = readonly [
   NodeAndDefCollection,
   FragmentSpreads,
 ];
+type FieldsAndFragmentSpreadsCache = Map<
+  SelectionSetNode,
+  Map<Map<string, ValueNode> | undefined, FieldsAndFragmentSpreads>
+>;
 /**
  * Find all conflicts found "within" a selection set, including those found
  * via spreading in fragments. Called when visiting each SelectionSet in the
@@ -212,22 +217,20 @@ type FieldsAndFragmentSpreads = readonly [
  */
 function findConflictsWithinSelectionSet(
   context: ValidationContext,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   comparedFieldsAndFragmentPairs: OrderedPairSet<NodeAndDefCollection, string>,
   comparedFragmentPairs: PairSet<string>,
   parentType: Maybe<GraphQLNamedType>,
   selectionSet: SelectionSetNode,
 ): Array<Conflict> {
   const conflicts: Array<Conflict> = [];
+  const varMap = getVarMap(context.getFragmentSignature());
   const [fieldMap, fragmentSpreads] = getFieldsAndFragmentSpreads(
     context,
     cachedFieldsAndFragmentSpreads,
     parentType,
     selectionSet,
-    undefined,
+    varMap,
   );
   // (A) Find find all conflicts "within" the fields and f of this selection set.
   // Note: this is the *only place* `collectConflictsWithin` is called.
@@ -238,6 +241,7 @@ function findConflictsWithinSelectionSet(
     comparedFieldsAndFragmentPairs,
     comparedFragmentPairs,
     fieldMap,
+    varMap,
   );
   if (fragmentSpreads.length !== 0) {
     // (B) Then collect conflicts between these fields and those represented by
@@ -251,6 +255,7 @@ function findConflictsWithinSelectionSet(
         comparedFragmentPairs,
         false,
         fieldMap,
+        varMap,
         fragmentSpreads[i],
       );
       // (C) Then compare this fragment with all other fragments found in this
@@ -278,14 +283,12 @@ function findConflictsWithinSelectionSet(
 function collectConflictsBetweenFieldsAndFragment(
   context: ValidationContext,
   conflicts: Array<Conflict>,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   comparedFieldsAndFragmentPairs: OrderedPairSet<NodeAndDefCollection, string>,
   comparedFragmentPairs: PairSet<string>,
   areMutuallyExclusive: boolean,
   fieldMap: NodeAndDefCollection,
+  varMap: Map<string, ValueNode> | undefined,
   fragmentSpread: FragmentSpread,
 ): void {
   // Memoize so the fields and fragments are not compared for conflicts more
@@ -329,7 +332,7 @@ function collectConflictsBetweenFieldsAndFragment(
     comparedFragmentPairs,
     areMutuallyExclusive,
     fieldMap,
-    undefined,
+    varMap,
     fieldMap2,
     fragmentSpread.varMap,
   );
@@ -344,6 +347,7 @@ function collectConflictsBetweenFieldsAndFragment(
       comparedFragmentPairs,
       areMutuallyExclusive,
       fieldMap,
+      varMap,
       referencedFragmentSpread,
     );
   }
@@ -353,10 +357,7 @@ function collectConflictsBetweenFieldsAndFragment(
 function collectConflictsBetweenFragments(
   context: ValidationContext,
   conflicts: Array<Conflict>,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   comparedFieldsAndFragmentPairs: OrderedPairSet<NodeAndDefCollection, string>,
   comparedFragmentPairs: PairSet<string>,
   areMutuallyExclusive: boolean,
@@ -369,21 +370,18 @@ function collectConflictsBetweenFragments(
   }
   if (fragmentSpread1.node.name.value === fragmentSpread2.node.name.value) {
     if (
-      !sameArguments(
-        fragmentSpread1.node.arguments,
-        fragmentSpread1.varMap,
-        fragmentSpread2.node.arguments,
-        fragmentSpread2.varMap,
-      )
+      comparedFragmentPairs.has(fragmentSpread1.key, fragmentSpread2.key, false)
     ) {
-      context.reportError(
-        new GraphQLError(
-          `Spreads "${fragmentSpread1.node.name.value}" conflict because ${fragmentSpread1.key} and ${fragmentSpread2.key} have different fragment arguments.`,
-          { nodes: [fragmentSpread1.node, fragmentSpread2.node] },
-        ),
-      );
       return;
     }
+    comparedFragmentPairs.add(fragmentSpread1.key, fragmentSpread2.key, false);
+    context.reportError(
+      new GraphQLError(
+        `Spreads "${fragmentSpread1.node.name.value}" conflict because ${getFragmentSpreadDescription(fragmentSpread1.node)} and ${getFragmentSpreadDescription(fragmentSpread2.node)} have different fragment arguments.`,
+        { nodes: [fragmentSpread1.node, fragmentSpread2.node] },
+      ),
+    );
+    return;
   }
   // Memoize so two fragments are not compared for conflicts more than once.
   if (
@@ -467,10 +465,7 @@ function collectConflictsBetweenFragments(
 // between the sub-fields of two overlapping fields.
 function findConflictsBetweenSubSelectionSets(
   context: ValidationContext,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   comparedFieldsAndFragmentPairs: OrderedPairSet<NodeAndDefCollection, string>,
   comparedFragmentPairs: PairSet<string>,
   areMutuallyExclusive: boolean,
@@ -520,6 +515,7 @@ function findConflictsBetweenSubSelectionSets(
       comparedFragmentPairs,
       areMutuallyExclusive,
       fieldMap1,
+      varMap1,
       fragmentSpread2,
     );
   }
@@ -534,6 +530,7 @@ function findConflictsBetweenSubSelectionSets(
       comparedFragmentPairs,
       areMutuallyExclusive,
       fieldMap2,
+      varMap2,
       fragmentSpread1,
     );
   }
@@ -560,13 +557,11 @@ function findConflictsBetweenSubSelectionSets(
 function collectConflictsWithin(
   context: ValidationContext,
   conflicts: Array<Conflict>,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   comparedFieldsAndFragmentPairs: OrderedPairSet<NodeAndDefCollection, string>,
   comparedFragmentPairs: PairSet<string>,
   fieldMap: NodeAndDefCollection,
+  varMap: Map<string, ValueNode> | undefined,
 ): void {
   // A field map is a keyed collection, where each key represents a response
   // name and the value at that key is a list of all fields which provide that
@@ -587,9 +582,9 @@ function collectConflictsWithin(
             false, // within one collection is never mutually exclusive
             responseName,
             fields[i],
-            undefined,
+            varMap,
             fields[j],
-            undefined,
+            varMap,
           );
           if (conflict) {
             conflicts.push(conflict);
@@ -607,10 +602,7 @@ function collectConflictsWithin(
 function collectConflictsBetween(
   context: ValidationContext,
   conflicts: Array<Conflict>,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   comparedFieldsAndFragmentPairs: OrderedPairSet<NodeAndDefCollection, string>,
   comparedFragmentPairs: PairSet<string>,
   parentFieldsAreMutuallyExclusive: boolean,
@@ -653,10 +645,7 @@ function collectConflictsBetween(
 // comparing their sub-fields.
 function findConflict(
   context: ValidationContext,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   comparedFieldsAndFragmentPairs: OrderedPairSet<NodeAndDefCollection, string>,
   comparedFragmentPairs: PairSet<string>,
   parentFieldsAreMutuallyExclusive: boolean,
@@ -870,15 +859,17 @@ function doTypesConflict(
 // referenced via fragment spreads.
 function getFieldsAndFragmentSpreads(
   context: ValidationContext,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   parentType: Maybe<GraphQLNamedType>,
   selectionSet: SelectionSetNode,
   varMap: Map<string, ValueNode> | undefined,
 ): FieldsAndFragmentSpreads {
-  const cached = cachedFieldsAndFragmentSpreads.get(selectionSet);
+  let cache = cachedFieldsAndFragmentSpreads.get(selectionSet);
+  if (!cache) {
+    cache = new Map();
+    cachedFieldsAndFragmentSpreads.set(selectionSet, cache);
+  }
+  const cached = cache.get(varMap);
   if (cached) {
     return cached;
   }
@@ -896,22 +887,21 @@ function getFieldsAndFragmentSpreads(
     nodeAndDefs,
     Array.from(fragmentSpreads.values()),
   ];
-  cachedFieldsAndFragmentSpreads.set(selectionSet, result);
+  cache.set(varMap, result);
   return result;
 }
 // Given a reference to a fragment, return the represented collection of fields
 // as well as a list of nested fragment spreads referenced via fragment spreads.
 function getReferencedFieldsAndFragmentSpreads(
   context: ValidationContext,
-  cachedFieldsAndFragmentSpreads: Map<
-    SelectionSetNode,
-    FieldsAndFragmentSpreads
-  >,
+  cachedFieldsAndFragmentSpreads: FieldsAndFragmentSpreadsCache,
   fragment: FragmentDefinitionNode,
   varMap: Map<string, ValueNode> | undefined,
 ) {
   // Short-circuit building a type from the node if possible.
-  const cached = cachedFieldsAndFragmentSpreads.get(fragment.selectionSet);
+  const cached = cachedFieldsAndFragmentSpreads
+    .get(fragment.selectionSet)
+    ?.get(varMap);
   if (cached) {
     return cached;
   }
@@ -980,7 +970,6 @@ function getFragmentSpread(
   varMap: Map<string, ValueNode> | undefined,
 ): FragmentSpread {
   let key = '';
-  const newVarMap = new Map<string, ValueNode>();
   const fragmentSignature = context.getFragmentSignatureByName()(
     fragmentSpreadNode.name.value,
   );
@@ -992,19 +981,13 @@ function getFragmentSpread(
   }
   if (fragmentSignature?.variableDefinitions) {
     key += fragmentSpreadNode.name.value + '(';
-    for (const [varName, variable] of fragmentSignature.variableDefinitions) {
+    for (const varName of fragmentSignature.variableDefinitions.keys()) {
       const value = argMap.get(varName);
       if (value) {
-        key += varName + ': ' + print(sortValueNode(value));
-      }
-      const arg = argMap.get(varName);
-      if (arg !== undefined) {
-        newVarMap.set(
-          varName,
-          varMap !== undefined ? replaceFragmentVariables(arg, varMap) : arg,
-        );
-      } else if (variable.defaultValue) {
-        newVarMap.set(varName, variable.defaultValue);
+        const scopedValue = varMap
+          ? replaceFragmentVariables(value, varMap)
+          : value;
+        key += varName + ': ' + stringifyValue(scopedValue);
       }
     }
     key += ')';
@@ -1012,8 +995,27 @@ function getFragmentSpread(
   return {
     key,
     node: fragmentSpreadNode,
-    varMap: newVarMap.size > 0 ? newVarMap : undefined,
+    varMap: getVarMap(fragmentSignature, key),
   };
+}
+function getVarMap(
+  fragmentSignature: ReturnType<ValidationContext['getFragmentSignature']>,
+  key = '',
+): Map<string, ValueNode> | undefined {
+  if (!fragmentSignature || fragmentSignature.variableDefinitions.size === 0) {
+    return;
+  }
+  const varMap = new Map<string, ValueNode>();
+  for (const variableName of fragmentSignature.variableDefinitions.keys()) {
+    varMap.set(variableName, {
+      kind: Kind.VARIABLE,
+      name: { kind: Kind.NAME, value: JSON.stringify([key, variableName]) },
+    });
+  }
+  return varMap;
+}
+function getFragmentSpreadDescription(node: FragmentSpreadNode): string {
+  return print({ ...node, directives: [] }).slice(3);
 }
 // Given a series of Conflicts which occurred between two sub-fields, generate
 // a single Conflict.
