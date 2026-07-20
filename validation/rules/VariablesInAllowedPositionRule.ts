@@ -58,8 +58,13 @@ export function VariablesInAllowedPositionRule(
   let varDefMap: Map<string, VariableDefinitionNode>;
   return {
     OperationDefinition: {
-      enter() {
+      enter(operation) {
         varDefMap = new Map();
+        if (operation.variableDefinitions) {
+          for (const varDef of operation.variableDefinitions) {
+            varDefMap.set(varDef.variable.name.value, varDef);
+          }
+        }
       },
       leave(operation) {
         const usages = context.getRecursiveVariableUsages(operation);
@@ -113,9 +118,6 @@ export function VariablesInAllowedPositionRule(
           }
         }
       },
-    },
-    VariableDefinition(node) {
-      varDefMap.set(node.variable.name.value, node);
     },
   };
 }
