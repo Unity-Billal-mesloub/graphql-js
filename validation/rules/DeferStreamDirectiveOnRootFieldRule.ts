@@ -114,6 +114,7 @@ function forbidDeferStream({
       if (visitedFragments.has(fragmentName)) {
         continue;
       }
+      visitedFragments.add(fragmentName);
       const fragment = fragments.get(fragmentName);
       if (fragment) {
         const defer = getDeferDirective(selection);
@@ -134,7 +135,6 @@ function forbidDeferStream({
           visitedFragments,
         });
       }
-      visitedFragments.add(fragmentName);
     } else if (selection.kind === 'InlineFragment') {
       const defer = getDeferDirective(selection);
       if (defer !== undefined) {
