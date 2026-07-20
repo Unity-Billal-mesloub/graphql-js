@@ -1,3 +1,3 @@
 import { enableDevMode } from '../../devMode.ts';
 enableDevMode();
-export * from '../../jsutils/getBySet.ts';
+export * from '../../jsutils/SetMap.ts';

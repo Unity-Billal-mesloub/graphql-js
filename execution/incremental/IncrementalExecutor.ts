@@ -8,6 +8,7 @@ import type { ObjMap } from '../../jsutils/ObjMap.ts';
 import type { Path } from '../../jsutils/Path.ts';
 import { addPath, pathToArray } from '../../jsutils/Path.ts';
 import type { PromiseOrValue } from '../../jsutils/PromiseOrValue.ts';
+import type { SetMap } from '../../jsutils/SetMap.ts';
 import type {
   GraphQLError,
   GraphQLFormattedError,
@@ -551,7 +552,7 @@ export class IncrementalExecutor<
     parentType: GraphQLObjectType,
     sourceValue: unknown,
     path: Path | undefined,
-    newGroupedFieldSets: Map<DeferUsageSet, GroupedFieldSet>,
+    newGroupedFieldSets: SetMap<DeferUsage, GroupedFieldSet>,
     deliveryGroupMap: ReadonlyMap<DeferUsage, DeliveryGroup>,
   ): void {
     const createSubExecutor = this.getCreateSubExecutor();
