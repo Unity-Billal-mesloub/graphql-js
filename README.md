@@ -1,9 +1,9 @@
 # GraphQL.js
 
-The JavaScript reference implementation for GraphQL, a query language for APIs created by Facebook.
+The JavaScript reference implementation for GraphQL, a query language for APIs.
 
 [![npm version](https://badge.fury.io/js/graphql.svg)](https://badge.fury.io/js/graphql)
-[![Build Status](https://github.com/graphql/graphql-js/actions/workflows/push.yml/badge.svg?branch=17.x.x)](https://github.com/graphql/graphql-js/actions/workflows/push.yml?query=branch%3A17.x.x)
+[![Build Status](https://github.com/Unity-Billal-mesloub/graphql-js/actions/workflows/push.yml/badge.svg?branch=17.x.x)](https://github.com/Unity-Billal-mesloub/graphql-js/actions/workflows/push.yml?query=branch%3A17.x.x)
 
 See more complete documentation at https://graphql.org/ and
 https://graphql.org/graphql-js/.
@@ -13,8 +13,8 @@ Looking for help? Find resources [from the community](https://graphql.org/commun
 ## Getting Started
 
 A general overview of GraphQL is available in the
-[README](https://github.com/graphql/graphql-spec/blob/main/README.md) for the
-[Specification for GraphQL](https://github.com/graphql/graphql-spec). That overview
+[README](https://github.com/Unity-Billal-mesloub/graphql-spec/blob/main/README.md) for the
+[Specification for GraphQL](https://github.com/Unity-Billal-mesloub/graphql-spec). That overview
 describes a simple set of GraphQL examples that exist as [tests](src/__tests__)
 in this repository. A good way to get started with this repository is to walk
 through that README and the corresponding tests in parallel.
@@ -115,17 +115,17 @@ the latest not-yet-released version of graphql-js, you can do so by depending
 directly on this branch:
 
 ```
-npm install graphql@git://github.com/graphql/graphql-js.git#npm
+npm install graphql@git://github.com/Unity-Billal-mesloub/graphql-js.git#npm
 ```
 
 ## Using in a Browser
 
 GraphQL.js is a general-purpose library and can be used both in a Node server
-and in the browser. As an example, the [GraphiQL](https://github.com/graphql/graphiql/)
+and in the browser. As an example, the [GraphiQL](https://github.com/Unity-Billal-mesloub/graphiql/)
 tool is built with GraphQL.js!
 
 Building a project using GraphQL.js with [webpack](https://webpack.js.org) or
-[rollup](https://github.com/rollup/rollup) should just work and only include
+[rollup](https://github.com/Unity-Billal-mesloub/rollup) should just work and only include
 the portions of the library you use. This works because GraphQL.js is distributed
 with both CommonJS (`require()`) and ESModule (`import`) files. The `exports`
 map within the project `package.json` should direct runtimes and bundlers to
@@ -141,17 +141,11 @@ This repository is managed by EasyCLA. Project participants must sign the free [
 
 To initiate the signature process please open a PR against this repo. The EasyCLA bot will block the merge if we still need a membership agreement from you.
 
-You can find [detailed information here](https://github.com/graphql/graphql-wg/tree/main/membership). If you have issues, please email [operations@graphql.org](mailto:operations@graphql.org).
-
 If your company benefits from GraphQL and you would like to provide essential financial support for the systems and people that power our community, please also consider membership in the [GraphQL Foundation](https://foundation.graphql.org/join).
 
 ## Changelog
 
-Changes are tracked as [GitHub releases](https://github.com/graphql/graphql-js/releases).
-
-## License
-
-GraphQL.js is [MIT-licensed](./LICENSE).
+Changes are tracked as [GitHub releases](https://github.com/Unity-Billal-mesloub/graphql-js/releases).
 
 ## Version Support
 
