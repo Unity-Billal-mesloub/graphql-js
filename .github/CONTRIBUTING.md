@@ -21,7 +21,7 @@ Since graphql-js is a reference implementation of the
 [GraphQL spec](https://graphql.github.io/graphql-spec/), only changes which comply
 with this spec will be considered. If you have a change in mind which requires a
 change to the spec, please consider opening an
-[issue](https://github.com/graphql/graphql-spec/issues/) against the spec and/or attending a [GraphQL Working Group meeting](https://github.com/graphql/graphql-wg) to discuss your proposed change. See the [contribution guide of the specification](https://github.com/graphql/graphql-spec/blob/main/CONTRIBUTING.md) for further information. Stage 1 and 2 proposals may be implemented within graphql-js behind a feature flag.
+[issue](https://github.com/Unity-Billal-mesloub/graphql-spec/issues/) against the spec and/or attending a [GraphQL Working Group meeting](https://github.com/Unity-Billal-mesloub/graphql-wg) to discuss your proposed change. See the [contribution guide of the specification](https://github.com/Unity-Billal-mesloub/graphql-spec/blob/main/CONTRIBUTING.md) for further information. Stage 1 and 2 proposals may be implemented within graphql-js behind a feature flag.
 
 ### GraphQL Specification Membership Agreement
 
@@ -29,7 +29,7 @@ This repository is managed by EasyCLA. Project participants must sign the free [
 
 To initiate the signature process please open a PR against this repo. The EasyCLA bot will block the merge if we still need a membership agreement from you.
 
-You can find [detailed information here](https://github.com/graphql/graphql-wg/tree/main/membership). If you have issues, please email [operations@graphql.org](mailto:operations@graphql.org).
+You can find [detailed information here](https://github.com/Unity-Billal-mesloub/graphql-wg/tree/main/membership). If you have issues, please email [operations@graphql.org](mailto:operations@graphql.org).
 
 If your company benefits from GraphQL and you would like to provide essential financial support for the systems and people that power our community, please also consider membership in the [GraphQL Foundation](https://foundation.graphql.org/join).
 
@@ -112,8 +112,7 @@ change website API output must include the generated files.
 ## Review and Merge Process
 
 - Pull requests are required to pass all tests and checks before they can be merged.
-- Ideally, pull requests should be reviewed by _at least two_ members of the [`@graphql/graphql-js-reviewers`](https://github.com/orgs/graphql/teams/graphql-js-reviewers) team before they are merged, preferably from separate organizations. For more complex pull requests, a larger cohort of reviewers is suggested.
-- Any reviewer may request that the topic be brought for more in depth discussion at a [GraphQL JS Working Group meeting](https://github.com/graphql/graphql-js-wg/), where decisions will be made by consensus.
+- Any reviewer may request that the topic be brought for more in depth discussion at a [GraphQL JS Working Group meeting](https://github.com/Unity-Billal-mesloub/graphql-js-wg/), where decisions will be made by consensus.
 - A PR that has been merged without discussion at a GraphQL JS Working Group meeting can be revisited in any subsequent meeting; the PR may be reverted as a result of that discussion.
 
 ## Discussion
@@ -159,7 +158,4 @@ Push `<my_release_branch>`, open a PR from `<my_release_branch>` to the target
 release branch, wait for CI to pass, merge the PR, and then approve the GitHub
 Actions release workflow.
 
-## License
 
-By contributing to graphql-js, you agree that your contributions will be
-licensed under its [MIT license](../LICENSE).
